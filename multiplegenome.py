@@ -468,7 +468,7 @@ class Writer:
         mauveBlockHeader = '> {0}:{1}-{2} {3} {4}\n'
         
         
-        def writeXMFA(self, alignment, path, name, order=0, view=False):
+        def writeXMFA(self, alignment, path, name, order=0):
             with open(path+"/"+name+".xmfa", "w") as output:
                 output.write(self.mauveFormatString)
                                
@@ -478,23 +478,7 @@ class Writer:
                         output.write(self.mauveGenomeEntry.format(nr, genome.entry))
                     output.write(self.mauveGenomeFormat.format(nr, genome.format))
                 
-                alignLCBs = []
-                
-                if view:
-                    nrGenomes = len(alignment.genomes)
-                    for lcb in alignment.LCBs:
-                        if len(lcb.entries) == nrGenomes or len(lcb.entries) == 1:
-                            alignLCBs.append(lcb)
-                        else:
-                            for e in lcb.entries:
-                                newLCB = LCB()
-                                newLCB.addEntry(e)
-                                alignLCBs.append(newLCB)
-                                
-                else:
-                    alignLCBs = alignment.LCBs
-                
-                sortedLCBs = sorted(alignLCBs, key=lambda lcb: lcb.number)
+                sortedLCBs = sorted(alignment.LCBs, key=lambda lcb: lcb.number)
                 
                 if order > 0:
                     sortedLCBs = sorted( sortedLCBs, key=lambda lcb, order=order: 
@@ -542,9 +526,9 @@ def main():
         pdb.set_trace()
         splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
     
-        writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order, args.view)
+        writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
     elif args.task == "xmfa":
-        writer.writeXMFA(align, args.output_p, args.output_name, args.order, args.view)
+        writer.writeXMFA(align, args.output_p, args.output_name, args.order)
     
     ### 
     
@@ -568,7 +552,6 @@ if __name__ == '__main__':
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
         parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|xmfa) [default: %(default)s]", choices=["consensus", "split", "xmfa"], required=False)
-        parser.add_argument("-v", "--viewablexmfa", dest="view", action="store_true", help="print XMFA file without sub-alignments (for viewing with standard viewers)")
         
         args = parser.parse_args()
         
