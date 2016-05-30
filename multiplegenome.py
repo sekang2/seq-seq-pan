@@ -486,11 +486,8 @@ class Writer:
                                        )
                 count = 0
                 for lcb in sortedLCBs:
-                    print("")
-                    print(count)
                     count += 1
                     for entry in sorted(lcb.entries, key=lambda e: e.sequenceNr):
-                        print(str(len(entry.sequence)) + ":" +  str(entry.sequenceNr) + ":" +  str(entry.start))
                         output.write(self.mauveBlockHeader.format( entry.sequenceNr, 
                                                                    entry.start, 
                                                                    entry.end, 
