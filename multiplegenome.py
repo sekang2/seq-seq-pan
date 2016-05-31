@@ -36,14 +36,24 @@ class Alignment:
         lcb.number = number
         self.LCBs.append(lcb)
         
-    def getConsensus(self, order=0):
+    def getConsensus(self, order=0, noDelimiter=False):
         # if order == 0 sort by blocknr
         if order <= len(self.genomes) and order > -1:
             sortedLCBs = sorted(self.LCBs, key=lambda lcb: lcb.number)
             if order > 0 :
-                sortedLCBs = sorted(sortedLCBs, key=lambda lcb, order=order: lcb.getEntry(order).start if lcb.getEntry(order) else sys.maxsize)  # call to getEntry twice!! DO something
+                sortedLCBs = sorted(sortedLCBs, 
+                                    key=lambda lcb, order=order: 
+                                        lcb.getEntry(order).start 
+                                        if lcb.getEntry(order) 
+                                        else sys.maxsize
+                                   )  # call to getEntry twice!! DO something
             
-            consseq = Parser().blockDelimiter.join( lcb.consensusSequence() for lcb in sortedLCBs )
+            delim = Parser().blockDelimiter
+            
+            if noDelimiter:
+                delim = ""
+            
+            consseq = delim.join( lcb.consensusSequence() for lcb in sortedLCBs )
             
             return consseq
             
@@ -59,6 +69,16 @@ class LCB:
             "C": "C",
             "G": "G",
             "T": "T",
+            "B": "CGT",
+            "D": "AGT",
+            "H": "ACT",
+            "K": "GT",
+            "M": "AC",
+            "R": "AG",
+            "S": "CG",
+            "V": "ACG",
+            "W": "AT",
+            "Y": "CT",
             "AC": "M",
             "AG": "R",
             "AT": "W",
@@ -69,17 +89,11 @@ class LCB:
             "ACT": "H",
             "AGT": "D",
             "CGT": "B",
-            "AN": "N",
-            "ACN": "N",
-            "ACGN": "N",
-            "ACGNT": "N",
-            "CN": "N",
-            "CGN": "N",
-            "CGNT": "N",
-            "GN": "N",
-            "GNT": "N",
-            "NT": "N"
+            "ACGT": "N",
+            "-": "-",
+            "N": "ACGT"
         }
+    
     
     def __init__(self, number=0):
         self.number = number
@@ -115,13 +129,22 @@ class LCB:
         
     def consensusSequence(self):
         if len(self.entries) > 0:
-            consseq = ''.join([self._IUPAC((lambda i=i: [e.sequence[i] for e in self.entries])()) for i in range(len(self.entries[0].sequence))])   # get i'th letter in sequence of each entry of LCB
+            consseq = ''.join([ self._IUPAC((lambda i=i: [e.sequence[i] for e in self.entries])()) 
+                                for i in range(len(self.entries[0].sequence))
+                              ])   # get i'th letter in sequence of each entry of LCB
             return consseq
         else:
             return ""
             
     def _IUPAC(self, bases):
-        c = ''.join(sorted(list(set(bases)))).replace("-", "")
+        # steps:
+        # convert character into unambiguous code (A,C,G,T)
+        # remove duplicates from list
+        # sort list
+        # remove gap character
+        # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
+        # return character (or "|" if something goes wrong
+        c = ''.join(sorted(list(set(''.join([self._iupac_dict.get(x, "|") for x in bases]))))).replace("-", "")
         return self._iupac_dict.get(c, "|")
 
         
@@ -177,11 +200,11 @@ class Consensus:
             self._getDelimiterPositions()
         
     
-    def fromAlignment(self, alignment, order, fastaFile):
+    def fromAlignment(self, alignment, order, fastaFile, nodelimiter=False):
         self.order = int(order)
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
-        self.sequence = alignment.getConsensus(order)
+        self.sequence = alignment.getConsensus(order, nodelimiter)
         #self._getDelimiterPositions()
         
     def getFasta(self, name):
@@ -305,7 +328,7 @@ class Resolver:
             else:
                 resolved.addLCB(lcb)
         
-        Writer().writeXMFA(resolved, "/home/jandrasitsc/TB_analysis/genomes/mauve/parsertest/testsequence", "unrecalculated", 0)
+        #Writer().writeXMFA(resolved, "/home/jandrasitsc/TB_analysis/genomes/mauve/parsertest/testsequence", "unrecalculated", 0)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
@@ -499,10 +522,10 @@ class Writer:
                     output.write("=\n")
             
         
-        def writeConsensus(self, alignment, path, name, order=0):
+        def writeConsensus(self, alignment, path, name, order=0, nodelimiter=False):
             filename = path+"/"+name+"_consensus.fasta"
             consensus = Consensus()
-            consensus.fromAlignment(alignment, order, filename)
+            consensus.fromAlignment(alignment, order, filename, nodelimiter)
             with open(filename, "w") as output:
                 output.write(consensus.getFasta(name))
         
@@ -516,11 +539,12 @@ def main():
     align = parser.parseXMFA(args.xmfa_f)
     
     if args.task == "consensus":
-        writer.writeConsensus(align, args.output_p, args.output_name, args.order)
+ #       pdb.set_trace()
+        writer.writeConsensus(align, args.output_p, args.output_name, args.order, args.nodelimiter)
     elif args.task == "split":
         consensus = parser.parseConsensus(args.consensus_f)
         org_align = parser.parseXMFA(consensus.xmfaFile)
-        pdb.set_trace()
+        
         splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
     
         writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
@@ -549,12 +573,15 @@ if __name__ == '__main__':
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
         parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|xmfa) [default: %(default)s]", choices=["consensus", "split", "xmfa"], required=False)
+        parser.add_argument( "--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus without block delimiter")
         
         args = parser.parse_args()
         
         if args.task == "split" and args.consensus_f is None:
              parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
             
+        if args.task != "consensus" and args.nodelimiter:
+            print("warnings: flag '--nodelimiter' has no effect if task is unequal 'consensus'. " , file=sys.stderr)
         
         
         #if len(args) < 1:
