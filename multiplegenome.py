@@ -209,7 +209,7 @@ class Consensus:
         
     def getFasta(self, name):
         header = name + ";" + str(self.order) + "|" + self.xmfaFile
-        return ("> "+header+"\n"+"\n".join(re.findall(".{1,80}", self.sequence))+"\n")   
+        return (">"+header+"\n"+"\n".join(re.findall(".{1,80}", self.sequence))+"\n")   
 
     def _getDelimiterPositions(self):
         delimiter = Parser().blockDelimiter
