@@ -7,14 +7,35 @@ import itertools
 import pdb
 import bisect
 
+class FormatError(Exception):
+    pass
+
+class InputError(Exception):
+    pass
+    
+class ConsensusFastaFormatError(Exception):
+    def __init__(self):
+        self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
+    
+class ParameterError(Exception):
+    
+    def __init__(self, parameter, value, rangetext):
+        self.parameter = parameter
+        self.value = value
+        self.rangetext = rangetext
+
+class LcbInputError(InputError):
+    
+    def __init__(self, lcbnr):
+        self.message = 'ERROR: Problem with LCB Nr. {0}: Entries must not be of different length.'.format(lcbnr)
+        
 class Genome:
 
     def __init__(self, filepath, format, entry=-1):
         self.filepath = os.path.abspath(filepath)
         self.format = format
         self.entry = int(entry)
-        
-        
+                
 class Alignment:
 
     def __init__(self, xmfaFile):
@@ -28,7 +49,7 @@ class Alignment:
     def addLCBentries(self, entries):
         number = len(self.LCBs) + 1
         lcb = LCB(number)
-        lcb.addEntry(entries)
+        lcb.addEntries(entries)
         self.LCBs.append(lcb)
         
     def addLCB(self, lcb):
@@ -37,29 +58,30 @@ class Alignment:
         self.LCBs.append(lcb)
         
     def getConsensus(self, order=0, noDelimiter=False):
+        
+        sortedLCBs = self.getSortedLCBs(order)    
+        delim = Parser().blockDelimiter
+        
+        if noDelimiter:
+            delim = ""
+        
+        consseq = delim.join( lcb.consensusSequence() for lcb in sortedLCBs )
+        
+        return consseq
+            
+
+    def getSortedLCBs(self, order):
         # if order == 0 sort by blocknr
         if order <= len(self.genomes) and order > -1:
             sortedLCBs = sorted(self.LCBs, key=lambda lcb: lcb.number)
-            if order > 0 :
-                sortedLCBs = sorted(sortedLCBs, 
-                                    key=lambda lcb, order=order: 
-                                        lcb.getEntry(order).start 
-                                        if lcb.getEntry(order) 
-                                        else sys.maxsize
-                                   )  # call to getEntry twice!! DO something
-            
-            delim = Parser().blockDelimiter
-            
-            if noDelimiter:
-                delim = ""
-            
-            consseq = delim.join( lcb.consensusSequence() for lcb in sortedLCBs )
-            
-            return consseq
-            
+                
+            if order > 0:
+                sortedLCBs = sorted(sortedLCBs, key=lambda lcb, order=order: 
+                                    lcb.getEntry(order).start if lcb.getEntry(order) is not None else sys.maxsize
+                                   )
+            return(sortedLCBs)
         else:
-            # wrong input, DO something
-            pass
+            raise ParameterError("order", order, "between 0 and " + str(len(self.genomes)) + " (number of genomes in XMFA)")
             
         
 class LCB:
@@ -100,18 +122,18 @@ class LCB:
         self.entries = []
         self.length = 0
         
-    def addEntry(self, entry):
-        if type(entry) is not list:
-            entry = [entry]
+    def addEntries(self, entries):
+        if type(entries) is not list:
+            entries = [entries]
         
-        # check if all are of the same length, if not DO something
-        length = len(entry[0].sequence)
-            
-        if self.length > 0 and length != len(self.entries[0].sequence):
-            # entries have unequal length DO something
-            pass 
+        length = len(entries[0].sequence)
+        
+        # check if new entries have same length as already added and all new entries have the same length
+        if (self.length > 0 and length != self.length) or (not all(len(e.sequence) == length for e in entries)):
+            raise LcbInputError(self.number)
+       
         self.length = length
-        self.entries.extend(entry)
+        self.entries.extend(entries)
         
     def getEntry(self, sequenceNr):
         entry = None
@@ -205,7 +227,6 @@ class Consensus:
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
         self.sequence = alignment.getConsensus(order, nodelimiter)
-        #self._getDelimiterPositions()
         
     def getFasta(self, name):
         header = name + ";" + str(self.order) + "|" + self.xmfaFile
@@ -267,7 +288,9 @@ class Parser:
                         pass
                 elif line.startswith("="):
                     ses.append(SequenceEntry(seqNr, start, end, strand, seq))
+                    
                     alignment.addLCBentries(ses)
+                    
                     seq = ""
                     ses = []
                 else:
@@ -287,14 +310,19 @@ class Parser:
                 order = m.group(1)
                 xmfaFile = m.group(2)
             else:
-                pass # consensus fasta file does not have correct format; DO something
+                raise ConsensusFastaFormatError()
             line = input.readline()
             sequence = ""
             while line:
                 sequence = sequence + line.strip()
                 line = input.readline()
+            
+            try:
+                cons = Consensus(sequence, order, xmfaFile, filename)
+            except ParameterError:
+                raise ConsensusFastaFormatError()
                 
-        return( Consensus(sequence, order, xmfaFile, filename) )
+            return cons
         
 
 class Resolver:        
@@ -335,28 +363,29 @@ class Resolver:
             recalculated.addGenome(genome, nr)
         nrGenomes = len(orgAlignment.genomes)+1
         recalculated.addGenome(alignment.genomes[newGenomeNr], nrGenomes)
-        
-        
-        for lcb in resolved.LCBs:
-            sortedOrgLCBs = sorted(orgAlignment.LCBs, key=lambda lcb: lcb.number)
-            if consensus.order > 0 :
-                sortedOrgLCBs = sorted( sortedOrgLCBs, key=lambda lcb, order=consensus.order: 
-                                        lcb.getEntry(order).start if lcb.getEntry(order) is not None else sys.maxsize
-                                       )  # call to getEntry twice!! DO something
+        try:
+            sortedOrgLCBs = orgAlignment.getSortedLCBs(consensus.order)    
+        except ParameterError:
+            raise ConsensusFastaFormatError()
+        else:
+            for lcb in resolved.LCBs:
+                recalculatedLCB = LCB(lcb.number)
+                newEntry = lcb.getEntry(newGenomeNr)
                 
-            recalculatedLCB = LCB(lcb.number)
-            newEntry = lcb.getEntry(newGenomeNr)
-            if newEntry is not None:
-                newEntry.sequenceNr = nrGenomes
-                recalculatedLCB.addEntry(newEntry)
-            consensusEntry = lcb.getEntry(consensusGenomeNr)
-            if consensusEntry is not None:
-                orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
-                recalculatedLCB.addEntry(orgEntries)
+                if newEntry is not None:
+                    newEntry.sequenceNr = nrGenomes
+                    recalculatedLCB.addEntries(newEntry)
+                consensusEntry = lcb.getEntry(consensusGenomeNr)
+                if consensusEntry is not None:
+                    orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
+                    try:
+                        recalculatedLCB.addEntries(orgEntries)
+                    except LcbInputError as e:
+                        print(e.message + " (Error occured in recalculating coordinates step.)")
+                
+                recalculated.addLCB(recalculatedLCB)
             
-            recalculated.addLCB(recalculatedLCB)
-        
-        return recalculated
+            return recalculated
         
         
     def _splitLCB(self, lcb, consensusGenomeNr):
@@ -407,8 +436,12 @@ class Resolver:
                 if len(entries) == 1: # only one entry - second sequence does not belong to LCB --> remove all gaps
                     entries[0].sequence = entries[0].sequence.replace("-", "") 
                 slcb = LCB()
-                slcb.addEntry(entries)
-                splitLCBs.append(slcb)
+                try:
+                    slcb.addEntries(entries)
+                except LcbInputError as e:
+                    print(e.message + " (Error occured in splitting step.)")
+                else:    
+                    splitLCBs.append(slcb)
         
         return splitLCBs
         
@@ -462,7 +495,7 @@ class Resolver:
                 eSumgaps = sum(end-start for start, end in eSubgaps.items())
             
             start = start - eSumgaps
-            end = end -eSumgaps
+            end = end - eSumgaps
             
             newEntry = SequenceEntry(e.sequenceNr, start, end, e.strand, sequence)
             
@@ -490,7 +523,6 @@ class Writer:
         mauveGenomeFormat = '#Sequence{0}Format\t{1}\n'
         mauveBlockHeader = '> {0}:{1}-{2} {3} {4}\n'
         
-        
         def writeXMFA(self, alignment, path, name, order=0):
             with open(path+"/"+name+".xmfa", "w") as output:
                 output.write(self.mauveFormatString)
@@ -501,12 +533,7 @@ class Writer:
                         output.write(self.mauveGenomeEntry.format(nr, genome.entry))
                     output.write(self.mauveGenomeFormat.format(nr, genome.format))
                 
-                sortedLCBs = sorted(alignment.LCBs, key=lambda lcb: lcb.number)
-                
-                if order > 0:
-                    sortedLCBs = sorted( sortedLCBs, key=lambda lcb, order=order: 
-                                         lcb.getEntry(order).start if lcb.getEntry(order) is not None else sys.maxsize
-                                       )
+                sortedLCBs = alignment.getSortedLCBs(order)
                 count = 0
                 for lcb in sortedLCBs:
                     count += 1
@@ -536,21 +563,37 @@ def main():
     writer = Writer()
     resolver = Resolver()
     
-    align = parser.parseXMFA(args.xmfa_f)
-    
-    if args.task == "consensus":
- #       pdb.set_trace()
-        writer.writeConsensus(align, args.output_p, args.output_name, args.order, args.nodelimiter)
-    elif args.task == "split":
-        consensus = parser.parseConsensus(args.consensus_f)
-        org_align = parser.parseXMFA(consensus.xmfaFile)
+    try:
+        align = parser.parseXMFA(args.xmfa_f)
+    except LcbInputError as e:
+        print(e.message + "(" + args.xmfa_f + ")")
+    else:
+        try:
+            if args.task == "consensus":
+         #       pdb.set_trace()
+                writer.writeConsensus(align, args.output_p, args.output_name, args.order, args.nodelimiter)
+            elif args.task == "split":
+                
+                try:
+                    consensus = parser.parseConsensus(args.consensus_f)
+                    try:
+                        org_align = parser.parseXMFA(consensus.xmfaFile)
+                    except LcbInputError as e:
+                        print(e.message + "(" + consensus.xmfaFile + ")")
+                    else:
+                        splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
+                except ConsensusFastaFormatError as e:
+                    print(e.message)
+                else:
+                    writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
+                    
+            elif args.task == "xmfa":
+                writer.writeXMFA(align, args.output_p, args.output_name, args.order)
+                
+                
+        except ParameterError as e:
+            print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
         
-        splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
-    
-        writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
-    elif args.task == "xmfa":
-        writer.writeXMFA(align, args.output_p, args.output_name, args.order)
-    
     ### 
     
     
@@ -573,7 +616,7 @@ if __name__ == '__main__':
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
         parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|xmfa) [default: %(default)s]", choices=["consensus", "split", "xmfa"], required=False)
-        parser.add_argument( "--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus without block delimiter")
+        parser.add_argument( "--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus sequence without block delimiter")
         
         args = parser.parse_args()
         
@@ -581,7 +624,7 @@ if __name__ == '__main__':
              parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
             
         if args.task != "consensus" and args.nodelimiter:
-            print("warnings: flag '--nodelimiter' has no effect if task is unequal 'consensus'. " , file=sys.stderr)
+            print("warnings: flag '--nodelimiter' has no effect if task is unequal to 'consensus'. " , file=sys.stderr)
         
         
         #if len(args) < 1:
