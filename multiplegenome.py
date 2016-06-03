@@ -12,22 +12,35 @@ class FormatError(Exception):
 
 class InputError(Exception):
     pass
-    
-class ConsensusFastaFormatError(Exception):
-    def __init__(self):
-        self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
-    
+
 class ParameterError(Exception):
     
     def __init__(self, parameter, value, rangetext):
         self.parameter = parameter
         self.value = value
         self.rangetext = rangetext
+    
+class ConsensusFastaFormatError(FormatError):
+    def __init__(self):
+        self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
+       
 
+class XMFAHeaderFormatError(FormatError):
+    def __init__(self, header):
+        self.message = "ERROR: XMFA sequence header \"" + header + "\" does not apply to XMFA header format rule: \"> seq:start-end strand\"."
+       
+       
 class LcbInputError(InputError):
     
     def __init__(self, lcbnr):
         self.message = 'ERROR: Problem with LCB Nr. {0}: Entries must not be of different length.'.format(lcbnr)
+        
+        
+class ConsensusXMFAInputError(InputError):
+    
+    def __init__(self):
+        self.message = "ERROR: XMFA with more than 2 genomes provided for splitting LCBs. Please align genomes to consensus sequence one by one, creating a new consensus sequence for every added genome."
+        
         
 class Genome:
 
@@ -128,7 +141,8 @@ class LCB:
         
         length = len(entries[0].sequence)
         
-        # check if new entries have same length as already added and all new entries have the same length
+        # check if new entries have same length as already added 
+        # and whether all new entries have the same length
         if (self.length > 0 and length != self.length) or (not all(len(e.sequence) == length for e in entries)):
             raise LcbInputError(self.number)
        
@@ -194,6 +208,8 @@ class SequenceEntry:
             sortedKeys = sorted(subgaps.keys())
             smallestStart = sortedKeys[0]
             highestStart = sortedKeys[-1]
+            
+            # if a gap streches over borders of region, make region borders new start or end of gap
             if subgaps[highestStart] > end:
                 subgaps[highestStart] = end
             if smallestStart < start:
@@ -284,8 +300,7 @@ class Parser:
                         end = m.group(3)
                         strand = m.group(4)
                     else:
-                        #there is something wrong -> DO something
-                        pass
+                        raise XMFAHeaderFormatError(line.strip())
                 elif line.startswith("="):
                     ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                     
@@ -329,7 +344,7 @@ class Resolver:
     
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
         if len(alignment.genomes) > 2:
-            pass # consensus alignment only with one more genome, DO something
+            raise ConsensusXMFAInputError()
     
         consensusGenomeNr = ( 1 if alignment.genomes[1].filepath == consensus.fastaFile else 2)
         newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
@@ -341,10 +356,13 @@ class Resolver:
         for lcb in alignment.LCBs:
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             if consensusEntry is not None:
+                # consensus sequence entry of LCB should be on forward strand for easier calculation of coordinates
+                # if not reverse all entries in LCB
                 if consensusEntry.strand == "-":
                     lcb.reverseEntries()
                     consensusEntry = lcb.getEntry(consensusGenomeNr)
             
+                # check if there are delimiters in the sequence 
                 trim =  (len(consensusEntry.sequence) > len(consensusEntry.sequence.strip('N')))
                 split =  re.search("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", consensusEntry.sequence.strip('N')) is not None 
                 if split or trim:
@@ -398,18 +416,22 @@ class Resolver:
         middleStart = 0
         middleEnd = lcb.length
         
+        # check if there is a delimiter sequence at the start
+        # and search from end of match afterwards
         m = re.search("^N[N-]*", consensusEntry.sequence)
         if m is not None:
             startPositions.append(m.end(0))
             middleStart = m.end(0)
         
+        # check if there is a delimiter sequence at the end
+        # and search until start of match afterwards
         m = re.search("[N-]*N$", consensusEntry.sequence[middleStart:])
         if m is not None:
             delimiterPositions.append([m.start(0)])
             middleEnd = m.start(0) + middleStart
         
         
-        # N stretches in the middle must have delimiter length
+        # N stretches in the middle must have delimiter length and be between start and end delimiter sequence
         delimiterPositions.extend([ (m.start(0), m.end(0)) 
                                     for m in re.finditer("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", 
                                                          consensusEntry.sequence[middleStart:middleEnd]
@@ -430,16 +452,16 @@ class Resolver:
                                               for e in lcb.entries
                                             ]
                                         )()
-                                  )
+                                  ) # add all entries that are not None
                           )
             if len(entries) > 0:
-                if len(entries) == 1: # only one entry - second sequence does not belong to LCB --> remove all gaps
+                if len(entries) == 1: # only one entry - sequence of second genome not present in current LCB --> remove all gaps
                     entries[0].sequence = entries[0].sequence.replace("-", "") 
                 slcb = LCB()
                 try:
                     slcb.addEntries(entries)
                 except LcbInputError as e:
-                    print(e.message + " (Error occured in splitting step.)")
+                    raise LcbInputError(e.message + " (Error occured in splitting step.)")
                 else:    
                     splitLCBs.append(slcb)
         
@@ -470,17 +492,22 @@ class Resolver:
     
     def _calculateCoordinates(self, consensusEntry, consensus, orgLCBlist):
         
+        # calculate in which consensus block this entry is located
         idx = bisect.bisect_left(consensus.blockStartIndices, consensusEntry.start) 
         
         idx -= 1
         orgLCB = orgLCBlist[idx]
+        
+        # calculate start and end of sequence within current consensus block
         startWithinBlock = consensusEntry.start - consensus.blockStartIndices[idx] - 1
         endWithinBlock = consensusEntry.end - consensus.blockStartIndices[idx] - 1
         
+        # count gaps in consensus entry
         sumgaps = 0
         if len(consensusEntry.gaps) > 0:
             sumgaps = sum(end-start for start, end in consensusEntry.gaps.items())
         
+        # get sequence of original blocks the same length as the consensus entry sequence minus number of gaps
         endSequenceSub = startWithinBlock + len(consensusEntry.sequence) - sumgaps
         
         orgEntries = []
@@ -489,6 +516,7 @@ class Resolver:
             end = e.start + endWithinBlock
             sequence = e.sequence[startWithinBlock:endSequenceSub]
             
+            # count gaps in original sequence before start of sequence to get correct start and end for entry
             eSumgaps = 0
             eSubgaps = e.getSubGapList(0,startWithinBlock)
             if len(eSubgaps) > 0:
@@ -501,6 +529,7 @@ class Resolver:
             
             newEntry.end = newEntry.end - sum( end-start for start, end in newEntry.gaps.items() )
             
+            # include all gaps in consensus sequence in original sequence for correct alignment
             for gstart, gend in sorted(consensusEntry.gaps.items()):
                 sequence = self._insertGap(sequence, gstart, gend-gstart)
             
@@ -509,6 +538,7 @@ class Resolver:
                 orgEntries.append(newEntry)
         
         return orgEntries
+    
     
     def _insertGap(self, sequence, position, length):
         seq = sequence[:position] + ("-"*length) + sequence[position:]
@@ -565,7 +595,7 @@ def main():
     
     try:
         align = parser.parseXMFA(args.xmfa_f)
-    except LcbInputError as e:
+    except (XMFAHeaderFormatError, LcbInputError) as e:
         print(e.message + "(" + args.xmfa_f + ")")
     else:
         try:
@@ -576,13 +606,11 @@ def main():
                 
                 try:
                     consensus = parser.parseConsensus(args.consensus_f)
-                    try:
-                        org_align = parser.parseXMFA(consensus.xmfaFile)
-                    except LcbInputError as e:
+                    org_align = parser.parseXMFA(consensus.xmfaFile)
+                    splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
+                except (XMFAHeaderFormatError, LcbInputError) as e:
                         print(e.message + "(" + consensus.xmfaFile + ")")
-                    else:
-                        splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
-                except ConsensusFastaFormatError as e:
+                except (ConsensusFastaFormatError, ConsensusXMFAInputError) as e:
                     print(e.message)
                 else:
                     writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
@@ -594,21 +622,10 @@ def main():
         except ParameterError as e:
             print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
         
-    ### 
-    
-    
-#    print(len(test_align.genomes))
-#    print(len(test_align.LCBs))
-#    for lcb in test_align.LCBs:
-#        print( lcb.number)
-#        for entry in lcb.entries:
-#            print('{0}:{1}-{2} -> len={3}'.format(entry.sequenceNr, entry.start, entry.end, len(entry.sequence)))
-
-    
+        
 if __name__ == '__main__':
     try:
-        
-        
+                
         parser = argparse.ArgumentParser()
         parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file", required=True)
         parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
