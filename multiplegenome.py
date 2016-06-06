@@ -253,92 +253,6 @@ class Consensus:
         self.blockStartIndices = [ (i.end()) for i in re.finditer(delimiter, self.sequence)] # store end coordinate of delimiter
         self.blockStartIndices[:0] = [0]
 
-        
-class Parser:
-    blockDelimiter = 'N' * 1000
-
-    def parseXMFA(self, filename):
-        alignment = Alignment(filename)
-        
-        with open(filename, "r") as xmfa:
-            line = xmfa.readline()
-            seq = ""
-            start = 0
-            end = 0
-            seqNr = 0
-            ses = []
-            while line:
-                line = line.rstrip()
-                if line.startswith("#"): #parse comment section
-                    m = re.match("#Sequence(\d)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
-                    if m is not None:
-                        number = m.group(1)
-                        fn = m.group(2)
-                        entry = -1
-                        line = xmfa.readline()
-                        m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
-                        if m is not None:
-                            entry = m.group(1)
-                            line = xmfa.readline()
-                            
-                        m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
-                        if m is not None:
-                            format = m.group(1)
-                            line = xmfa.readline()
-                        genome = Genome(fn, format, entry)
-                        alignment.addGenome(genome, number)
-                        continue
-                
-                elif line.startswith(">"): # a sequence start was encountered
-                    if len(seq) > 0: # save previous sequence
-                        ses.append(SequenceEntry(seqNr, start, end, strand, seq))
-                        seq = ""
-                    m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
-                    if m is not None:
-                        seqNr = m.group(1)
-                        start = m.group(2)
-                        end = m.group(3)
-                        strand = m.group(4)
-                    else:
-                        raise XMFAHeaderFormatError(line.strip())
-                elif line.startswith("="):
-                    ses.append(SequenceEntry(seqNr, start, end, strand, seq))
-                    
-                    alignment.addLCBentries(ses)
-                    
-                    seq = ""
-                    ses = []
-                else:
-                    seq += line
-                    
-                line = xmfa.readline()
-                    
-        return alignment
-    
-    
-    def parseConsensus(self, filename):
-        
-        with open(filename, "r") as input:
-            line = input.readline()
-            m = re.match("^>[^;]+;(\d+)\|(.*)", line)
-            if m is not None:
-                order = m.group(1)
-                xmfaFile = m.group(2)
-            else:
-                raise ConsensusFastaFormatError()
-            line = input.readline()
-            sequence = ""
-            while line:
-                sequence = sequence + line.strip()
-                line = input.readline()
-            
-            try:
-                cons = Consensus(sequence, order, xmfaFile, filename)
-            except ParameterError:
-                raise ConsensusFastaFormatError()
-                
-            return cons
-        
 
 class Resolver:        
     
@@ -543,6 +457,92 @@ class Resolver:
     def _insertGap(self, sequence, position, length):
         seq = sequence[:position] + ("-"*length) + sequence[position:]
         return seq
+
+        
+class Parser:
+    blockDelimiter = 'N' * 1000
+
+    def parseXMFA(self, filename):
+        alignment = Alignment(filename)
+        
+        with open(filename, "r") as xmfa:
+            line = xmfa.readline()
+            seq = ""
+            start = 0
+            end = 0
+            seqNr = 0
+            ses = []
+            while line:
+                line = line.rstrip()
+                if line.startswith("#"): #parse comment section
+                    m = re.match("#Sequence(\d)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                    if m is not None:
+                        number = m.group(1)
+                        fn = m.group(2)
+                        entry = -1
+                        line = xmfa.readline()
+                        m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
+                        if m is not None:
+                            entry = m.group(1)
+                            line = xmfa.readline()
+                            
+                        m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
+                        if m is not None:
+                            format = m.group(1)
+                            line = xmfa.readline()
+                        genome = Genome(fn, format, entry)
+                        alignment.addGenome(genome, number)
+                        continue
+                
+                elif line.startswith(">"): # a sequence start was encountered
+                    if len(seq) > 0: # save previous sequence
+                        ses.append(SequenceEntry(seqNr, start, end, strand, seq))
+                        seq = ""
+                    m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
+                    if m is not None:
+                        seqNr = m.group(1)
+                        start = m.group(2)
+                        end = m.group(3)
+                        strand = m.group(4)
+                    else:
+                        raise XMFAHeaderFormatError(line.strip())
+                elif line.startswith("="):
+                    ses.append(SequenceEntry(seqNr, start, end, strand, seq))
+                    
+                    alignment.addLCBentries(ses)
+                    
+                    seq = ""
+                    ses = []
+                else:
+                    seq += line
+                    
+                line = xmfa.readline()
+                    
+        return alignment
+    
+    
+    def parseConsensus(self, filename):
+        
+        with open(filename, "r") as input:
+            line = input.readline()
+            m = re.match("^>[^;]+;(\d+)\|(.*)", line)
+            if m is not None:
+                order = m.group(1)
+                xmfaFile = m.group(2)
+            else:
+                raise ConsensusFastaFormatError()
+            line = input.readline()
+            sequence = ""
+            while line:
+                sequence = sequence + line.strip()
+                line = input.readline()
+            
+            try:
+                cons = Consensus(sequence, order, xmfaFile, filename)
+            except ParameterError:
+                raise ConsensusFastaFormatError()
+                
+            return cons
     
     
 
