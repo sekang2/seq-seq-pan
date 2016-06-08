@@ -6,6 +6,13 @@ import re
 import itertools
 import pdb
 import bisect
+import collections
+
+from Bio import pairwise2
+from Bio.Seq import Seq
+#sys.path.append('/home/jandrasitsc/software/bin/python/lib/python3.4/')
+
+#import swalign
 
 class FormatError(Exception):
     pass
@@ -158,9 +165,9 @@ class LCB:
         return entry
 
     
-    def reverseEntries(self):
+    def reverseComplementEntries(self):
         for e in self.entries:
-            e.reverse()
+            e.reverseComplement()
         
         
     def consensusSequence(self):
@@ -202,7 +209,11 @@ class SequenceEntry:
     def _gapList(self):
         self.gaps = {i.start() : i.end() for i in re.finditer('-+', self.sequence)}
 
-    def getSubGapList(self, start, end):
+    def getSubGapList(self, start=0, end=None):
+            
+        if end is None:
+            end = len(self.sequence)
+            
         subgaps = {gstart: gend for gstart, gend in self.gaps.items() if gend > start and gstart < end }
         if len(subgaps) > 0:
             sortedKeys = sorted(subgaps.keys())
@@ -218,9 +229,10 @@ class SequenceEntry:
         
         return subgaps
         
-    def reverse(self):
+    def reverseComplement(self):
         self.strand = ("+" if self.strand == "-" else "-")
-        self.sequence = self.sequence[::-1]
+        seq = Seq(self.sequence)
+        self.sequence = str(seq.reverse_complement())
 
         
 class Consensus:
@@ -253,7 +265,95 @@ class Consensus:
         self.blockStartIndices = [ (i.end()) for i in re.finditer(delimiter, self.sequence)] # store end coordinate of delimiter
         self.blockStartIndices[:0] = [0]
 
+        
+class Realigner:
+    
+    #def __init__(self):
+    
+    def realign(self, alignment):
+        # start with 2 sequences -> DO something for more or add exception (as with resolve)
+        
+        realigned = Alignment(alignment.xmfaFile)
+        for nr, genome in alignment.genomes.items():
+            realigned.addGenome(genome, nr)
+        
+        
+        # go through lcbs, skip one-entry ones
+        for lcb in alignment.getSortedLCBs(0):
+            if len(lcb.entries) == 1:
+                realigned.addLCB(lcb)
+            else:
+                entryOne = lcb.entries[0]
+                entryTwo = lcb.entries[1]
+                
+                # get regions to realign
+                oneFirstTwoSecond = self._getRealignRegions(entryOne.getSubGapList(), entryTwo.getSubGapList()  )
+                
+                if len(oneFirstTwoSecond) > 0:
+                    seqOne, seqTwo = self._realign(entryOne.sequence, entryTwo.sequence, oneFirstTwoSecond)
+                    entryOne.sequence = seqOne
+                    entryTwo.sequence = seqTwo
+                
+                # get regions to realign for updated entries with second entry first
+                twoFirstOneSecond = self._getRealignRegions(entryTwo.getSubGapList(), entryOne.getSubGapList() )
+                
+                if len(twoFirstOneSecond) > 0:
+                    seqTwo, seqOne = self._realign(entryTwo.sequence, entryOne.sequence, twoFirstOneSecond)
+                    entryOne.sequence = seqOne
+                    entryTwo.sequence = seqTwo
+                
+                newlcb = LCB()
+                newlcb.addEntries([entryOne, entryTwo])
+                
+                realigned.addLCB(newlcb)
+                
+        return realigned
+    
+    
+    def _getRealignRegions(self, gapsForStart, gapsForEnd):
+        endsDict = { end : start for start, end in gapsForEnd.items() }
+        locList = [start for start, end in gapsForStart.items()] + list(endsDict.keys())
+        
+        regionStarts = [item for item, count in collections.Counter(locList).items() if count > 1]
+        
+        regions = []
+        for start in regionStarts:
+            regions.append( [(start, gapsForStart[start]), (endsDict[start], start)])
+        
+        return regions
 
+    
+    def _realign(self, seqOne, seqTwo, realignRegions):
+    
+        realignRegions = sorted(realignRegions)
+    
+        index_offset = 0
+    
+        for interval in realignRegions:
+            minIndex, minSeqLength = min(enumerate( [interval[0][1] - interval[0][0], interval[1][1] - interval[1][0] ] ), key=lambda p: p[1])
+            
+            if minSeqLength < 10:
+            
+                seqStart = interval[minIndex][0] - index_offset - minSeqLength
+                seqEnd = interval[minIndex][1] -index_offset + minSeqLength
+                
+                alignments = pairwise2.align.globalxx(seqOne[seqStart:seqEnd].replace("-", "") , seqTwo[seqStart:seqEnd].replace("-", ""))
+                
+                
+                maxscore = max( [x[2] for x in alignments] )
+                alignments = (lambda maxscore=maxscore: [item for item in alignments if item[2] == maxscore])()
+                
+                minlength = min( [x[4] for x in alignments] )
+                alignments = (lambda minlength=minlength: [item for item in alignments if item[4] == minlength])()
+                
+                seqOne = alignments[0][0].join([ seqOne[:seqStart], seqOne[seqEnd:] ])
+                seqTwo = alignments[0][1].join([ seqTwo[:seqStart], seqTwo[seqEnd:] ])
+                
+                index_offset += ((seqEnd - seqStart) - minlength)
+
+        
+        return (seqOne, seqTwo)
+        
 class Resolver:        
     
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
@@ -271,9 +371,9 @@ class Resolver:
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             if consensusEntry is not None:
                 # consensus sequence entry of LCB should be on forward strand for easier calculation of coordinates
-                # if not reverse all entries in LCB
+                # if not reverse complement all entries in LCB
                 if consensusEntry.strand == "-":
-                    lcb.reverseEntries()
+                    lcb.reverseComplementEntries()
                     consensusEntry = lcb.getEntry(consensusGenomeNr)
             
                 # check if there are delimiters in the sequence 
@@ -309,6 +409,7 @@ class Resolver:
                     recalculatedLCB.addEntries(newEntry)
                 consensusEntry = lcb.getEntry(consensusGenomeNr)
                 if consensusEntry is not None:
+                    #pdb.set_trace()
                     orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
                     try:
                         recalculatedLCB.addEntries(orgEntries)
@@ -392,7 +493,7 @@ class Resolver:
         
         subgaps = entry.getSubGapList(0, splitstart)
         if len(subgaps) > 0:
-            sumgaps = sum(end-start for start, end in subgaps.items())
+            sumgaps = sum(end-start + 1 for start, end in subgaps.items())
         
         start = entry.start + splitstart - sumgaps
         end = start + splitlen - 1 
@@ -455,7 +556,7 @@ class Resolver:
     
     
     def _insertGap(self, sequence, position, length):
-        seq = sequence[:position] + ("-"*length) + sequence[position:]
+        seq = ("-"*length).join([sequence[:position], sequence[position:]])
         return seq
 
         
@@ -592,13 +693,19 @@ def main():
     parser = Parser()
     writer = Writer()
     resolver = Resolver()
+    realigner = Realigner()
     
     try:
         align = parser.parseXMFA(args.xmfa_f)
+            
     except (XMFAHeaderFormatError, LcbInputError) as e:
         print(e.message + "(" + args.xmfa_f + ")")
     else:
         try:
+            if args.task == "realign":
+                realign = realigner.realign(align)
+                writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
+                
             if args.task == "consensus":
          #       pdb.set_trace()
                 writer.writeConsensus(align, args.output_p, args.output_name, args.order, args.nodelimiter)
@@ -614,7 +721,7 @@ def main():
                     print(e.message)
                 else:
                     writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
-                    
+            
             elif args.task == "xmfa":
                 writer.writeXMFA(align, args.output_p, args.output_name, args.order)
                 
@@ -632,7 +739,7 @@ if __name__ == '__main__':
         parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|xmfa) [default: %(default)s]", choices=["consensus", "split", "xmfa"], required=False)
+        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa"], required=False)
         parser.add_argument( "--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus sequence without block delimiter")
         
         args = parser.parse_args()
