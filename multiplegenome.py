@@ -493,7 +493,7 @@ class Resolver:
         
         subgaps = entry.getSubGapList(0, splitstart)
         if len(subgaps) > 0:
-            sumgaps = sum(end-start + 1 for start, end in subgaps.items())
+            sumgaps = sum(end-start for start, end in subgaps.items())
         
         start = entry.start + splitstart - sumgaps
         end = start + splitlen - 1 
