@@ -178,7 +178,8 @@ class LCB:
             return consseq
         else:
             return ""
-            
+    
+        
     def _IUPAC(self, bases):
         # steps:
         # convert character into unambiguous code (A,C,G,T)
@@ -187,7 +188,22 @@ class LCB:
         # remove gap character
         # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
         # return character (or "|" if something goes wrong
-        c = ''.join(sorted(list(set(''.join([self._iupac_dict.get(x, "|") for x in bases]))))).replace("-", "")
+        
+        c = ''.join(
+                sorted(
+                    list(
+                        set(
+                            ''.join(
+                                    [
+                                    self._iupac_dict.get(x, "|")
+                                    for x in bases
+                                    ]
+                                   # [self._iupac_dict[x] for x in bases]
+                                   )
+                            )
+                        )
+                       )
+                    ).replace("-", "")
         return self._iupac_dict.get(c, "|")
 
         
@@ -409,7 +425,7 @@ class Resolver:
                     recalculatedLCB.addEntries(newEntry)
                 consensusEntry = lcb.getEntry(consensusGenomeNr)
                 if consensusEntry is not None:
-                    #pdb.set_trace()
+                    pdb.set_trace()
                     orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
                     try:
                         recalculatedLCB.addEntries(orgEntries)
@@ -684,9 +700,11 @@ class Writer:
             filename = path+"/"+name+"_consensus.fasta"
             consensus = Consensus()
             consensus.fromAlignment(alignment, order, filename, nodelimiter)
+            pdb.set_trace()
             with open(filename, "w") as output:
                 output.write(consensus.getFasta(name))
-        
+
+                
 def main():
     global args
     
@@ -741,6 +759,7 @@ if __name__ == '__main__':
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
         parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa"], required=False)
         parser.add_argument( "--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus sequence without block delimiter")
+        
         
         args = parser.parse_args()
         
