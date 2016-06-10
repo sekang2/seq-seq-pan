@@ -688,13 +688,13 @@ class Writer:
         
         def writeConsensus(self, alignment, path, name, order=0):
             filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
-            filename_delim = os.path.abspath(path+"/"+name+"_consensus_blockseparated.fasta")
+            
             consensus = Consensus()
             self._writeConsensusIndex(alignment, filename, order)
             consensus.fromAlignment(alignment, order, filename)
             with open(filename, "w") as output:
                 output.write(consensus.getFasta(name, False))
-            with open(filename_delim, "w") as output:
+            with open(filename + ".blockseparated.fasta", "w") as output:
                 output.write(consensus.getFasta(name, True))
 
         def _writeConsensusIndex(self, alignment, fastafile, order=0):
@@ -735,39 +735,42 @@ def main():
     resolver = Resolver()
     realigner = Realigner()
     
-    try:
-        align = parser.parseXMFA(args.xmfa_f)
-            
-    except (XMFAHeaderFormatError, LcbInputError) as e:
-        print(e.message + "(" + args.xmfa_f + ")")
+    if args.task == "map":
+        #parser.parseIndex(args.index_f)
+        align, consensus = parser.parseConsensusIndex(
     else:
         try:
-            if args.task == "realign":
-                realign = realigner.realign(align)
-                writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
+            align = parser.parseXMFA(args.xmfa_f)
                 
-            if args.task == "consensus":
-                writer.writeConsensus(align, args.output_p, args.output_name, args.order)#, nodelimiter, args.consensusindex)
-            elif args.task == "split":
+        except (XMFAHeaderFormatError, LcbInputError) as e:
+            print(e.message + "(" + args.xmfa_f + ")")
+        else:
+            try:
+                if args.task == "realign":
+                    realign = realigner.realign(align)
+                    writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
+                    
+                if args.task == "consensus":
+                    writer.writeConsensus(align, args.output_p, args.output_name, args.order)#, nodelimiter, args.consensusindex)
+                elif args.task == "split":
+                    
+                    try:
+                        consensus = parser.parseConsensus(args.consensus_f)
+                        org_align = parser.parseXMFA(consensus.xmfaFile)
+                        splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
+                    except (XMFAHeaderFormatError, LcbInputError) as e:
+                            print(e.message + "(" + consensus.xmfaFile + ")")
+                    except (ConsensusFastaFormatError, ConsensusXMFAInputError) as e:
+                        print(e.message)
+                    else:
+                        writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
                 
-                try:
-                    consensus = parser.parseConsensus(args.consensus_f)
-                    org_align = parser.parseXMFA(consensus.xmfaFile)
-                    splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
-                except (XMFAHeaderFormatError, LcbInputError) as e:
-                        print(e.message + "(" + consensus.xmfaFile + ")")
-                except (ConsensusFastaFormatError, ConsensusXMFAInputError) as e:
-                    print(e.message)
-                else:
-                    writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
+                elif args.task == "xmfa":
+                    writer.writeXMFA(align, args.output_p, args.output_name, args.order)
+                
+            except ParameterError as e:
+                print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
             
-            elif args.task == "xmfa":
-                writer.writeXMFA(align, args.output_p, args.output_name, args.order)
-                
-                
-        except ParameterError as e:
-            print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
-        
         
 if __name__ == '__main__':
     try:
@@ -785,6 +788,12 @@ if __name__ == '__main__':
         
         if args.task == "split" and args.consensus_f is None:
              parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
+        
+        if args.task == "map": 
+            if args.consensus_f is None:
+                parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"map\"-task (-t/--task).")
+            if args.xmfa_f is not None:
+                print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task)." , file=sys.stderr)
         
         #if len(args) < 1:
         #    parser.error ('missing argument')
