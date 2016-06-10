@@ -10,9 +10,6 @@ import collections
 
 from Bio import pairwise2
 from Bio.Seq import Seq
-#sys.path.append('/home/jandrasitsc/software/bin/python/lib/python3.4/')
-
-#import swalign
 
 class FormatError(Exception):
     pass
@@ -77,13 +74,9 @@ class Alignment:
         lcb.number = number
         self.LCBs.append(lcb)
         
-    def getConsensus(self, order=0, noDelimiter=False):
-        
+    def getConsensus(self, order=0):
         sortedLCBs = self.getSortedLCBs(order)    
         delim = Parser().blockDelimiter
-        
-        if noDelimiter:
-            delim = ""
         
         consseq = delim.join( lcb.consensusSequence() for lcb in sortedLCBs )
         
@@ -189,21 +182,7 @@ class LCB:
         # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
         # return character (or "|" if something goes wrong
         
-        c = ''.join(
-                sorted(
-                    list(
-                        set(
-                            ''.join(
-                                    [
-                                    self._iupac_dict.get(x, "|")
-                                    for x in bases
-                                    ]
-                                   # [self._iupac_dict[x] for x in bases]
-                                   )
-                            )
-                        )
-                       )
-                    ).replace("-", "")
+        c = ''.join(sorted(list(set(''.join([ self._iupac_dict.get(x, "|") for x in bases]))))).replace("-", "")
         return self._iupac_dict.get(c, "|")
 
         
@@ -266,16 +245,24 @@ class Consensus:
             self._getDelimiterPositions()
         
     
-    def fromAlignment(self, alignment, order, fastaFile, nodelimiter=False):
+    def fromAlignment(self, alignment, order, fastaFile):
         self.order = int(order)
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
-        self.sequence = alignment.getConsensus(order, nodelimiter)
+        self.sequence = alignment.getConsensus(order)
         
-    def getFasta(self, name):
+        
+    def getFasta(self, name, delimiter=True):
         header = name + ";" + str(self.order) + "|" + self.xmfaFile
-        return (">"+header+"\n"+"\n".join(re.findall(".{1,80}", self.sequence))+"\n")   
+        
+        seq = self.sequence
+        if not delimiter:
+            seq = seq.replace(Parser().blockDelimiter, '')
+        
+        return (">"+header+"\n"+"\n".join(re.findall(".{1,80}", seq))+"\n")   
 
+        
+        
     def _getDelimiterPositions(self):
         delimiter = Parser().blockDelimiter
         self.blockStartIndices = [ (i.end()) for i in re.finditer(delimiter, self.sequence)] # store end coordinate of delimiter
@@ -403,8 +390,6 @@ class Resolver:
                     resolved.addLCB(lcb)
             else:
                 resolved.addLCB(lcb)
-        
-        #Writer().writeXMFA(resolved, "/home/jandrasitsc/TB_analysis/genomes/mauve/parsertest/testsequence", "unrecalculated", 0)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
@@ -701,16 +686,16 @@ class Writer:
                     output.write("=\n")
             
         
-        def writeConsensus(self, alignment, path, name, order=0, nodelimiter=False, consensusindex=False):
+        def writeConsensus(self, alignment, path, name, order=0):
             filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
+            filename_delim = os.path.abspath(path+"/"+name+"_consensus_blockseparated.fasta")
             consensus = Consensus()
-            if consensusindex: 
-                nodelimiter = True
-                self._writeConsensusIndex(alignment, filename, order)
-            consensus.fromAlignment(alignment, order, filename, nodelimiter)
+            self._writeConsensusIndex(alignment, filename, order)
+            consensus.fromAlignment(alignment, order, filename)
             with open(filename, "w") as output:
-                output.write(consensus.getFasta(name))
-
+                output.write(consensus.getFasta(name, False))
+            with open(filename_delim, "w") as output:
+                output.write(consensus.getFasta(name, True))
 
         def _writeConsensusIndex(self, alignment, fastafile, order=0):
             with open(fastafile+".idx", "w") as output:
@@ -762,10 +747,7 @@ def main():
                 writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
                 
             if args.task == "consensus":
-                nodelimiter = args.nodelimiter
-                if args.consensusindex:
-                    nodelimiter=True
-                writer.writeConsensus(align, args.output_p, args.output_name, args.order, nodelimiter, args.consensusindex)
+                writer.writeConsensus(align, args.output_p, args.output_name, args.order)#, nodelimiter, args.consensusindex)
             elif args.task == "split":
                 
                 try:
@@ -796,20 +778,13 @@ if __name__ == '__main__':
         parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa"], required=False)
-        parser.add_argument("--nodelimiter", dest="nodelimiter", action="store_true", help="print consensus sequence without block delimiter")
-        parser.add_argument("--consensusindex", dest="consensusindex", action="store_true", help="create consensus sequence index file, also generates a consensus sequence file without block delimiter")
+        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map"], required=False)
+        parser.add_argument("-i", "--index", dest="index_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...]. Then one coordinate per line.")
         
         args = parser.parse_args()
         
         if args.task == "split" and args.consensus_f is None:
              parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
-            
-        if args.task != "consensus" and args.nodelimiter:
-            print("warnings: flag '--nodelimiter' has no effect if task (-t/--task) is unequal to 'consensus'. " , file=sys.stderr)
-        
-        if args.task != "consensus" and args.consensusindex:
-            print("warnings: flag '--consensusindex' has no effect if task (-t/--task) is unequal to 'consensus'. " , file=sys.stderr)
         
         #if len(args) < 1:
         #    parser.error ('missing argument')
