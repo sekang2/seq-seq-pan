@@ -7,6 +7,7 @@ import itertools
 import pdb
 import bisect
 import collections
+import copy
 
 from Bio import pairwise2
 from Bio.Seq import Seq
@@ -199,9 +200,9 @@ class SequenceEntry:
     def __setattr__(self, name, value):
         self.__dict__[name] = value
         if name == "sequence":
-            self._gapList()
+            self._gapDict()
     
-    def _gapList(self):
+    def _gapDict(self):
         self.gaps = {i.start() : i.end() for i in re.finditer('-+', self.sequence)}
 
     def getSubGapList(self, start=0, end=None):
@@ -357,8 +358,140 @@ class Realigner:
         
         return (seqOne, seqTwo)
         
-class Resolver:        
+        
     
+class Mapper:
+    
+    def mapCoordinates(self, alignment, consensus, source, dests, coordinates):
+        
+        if type(dests) is not list:
+            dests = [dests]
+
+        
+        
+        dests = sorted(dests)
+        coordinates = sorted(coordinates)
+        
+        coord_dict = collections.defaultdict(dict)
+        
+        #coord_dict[source] = { coord: { coordinates
+        
+        addC = ("c" in dests)
+        if addC:
+            dests = sorted(dests)[:-1]
+        
+        if source == "c":
+        
+            
+            for coord in coordinates:
+                
+                idx = bisect.bisect_left(consensus.blockStartIndices, coord) 
+                idx -= 1
+                lcb = alignment.LCBs[idx]
+                
+                # calculate position within current consensus block - there are no gaps in consensus sequence!
+                posWithinBlock = coord - consensus.blockStartIndices[idx] - 1
+                
+                if addC:
+                    coord_dict[coord]["c"] = coord
+                
+                coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
+                            
+        else:
+            ## find lcb for coord
+            
+            sourceBlocks = {}
+            
+            for i in range(len(alignment.LCBs)):
+                e = alignment.LCBs[i].getEntry(int(source))
+                if e is not None:
+                    sourceBlocks[e.end] = {"lcb":i, "entry":e }
+            
+            for coord in coordinates:
+                sourceEnds = sorted(sourceBlocks.keys())
+                idxInEnds = bisect.bisect_left(sourceEnds, coord)
+                lcbIdx = sourceBlocks[sourceEnds[idxInEnds]]["lcb"]
+                
+                if lcbIdx > len(alignment.LCBs):
+                    pass # raise exception -> source coord not in alignment
+    
+                sourceEntry = sourceBlocks[sourceEnds[idxInEnds]]["entry"]
+                lcb = alignment.LCBs[lcbIdx]
+                
+                if sourceEntry.strand == "+":
+                    posWithinBlockWithoutGaps = coord - sourceEntry.start
+                else:
+                    posWithinBlockWithoutGaps = sourceEntry.end - coord
+            
+            
+                if addC:
+                    consLength = sum([lcb.length for lcb in alignment.LCBs[0:lcbIdx]])
+                    coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps
+                    
+                
+                if len(dests) > 0:
+                
+                    curNrOfNonGaps = 0
+                    posWithinBlock = 0
+                    lastGapEnd = 0
+                
+                
+                    ### HOW DO I DO THAT IF BLOCK IS ON - STRAND???? TEST REST!
+                    
+                    
+                    ## find position within block with gaps
+                    #if sourceEntry.strand == '+' :
+                    
+                    
+                    for start, end in sourceEntry.gaps.items():
+                        newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
+                        if newNrOfNonGaps >= posWithinBlockWithoutGaps:
+                            break
+                        else:
+                            posWithinBlock = end
+                            curNrOfNonGaps = newNrONonGaps
+                            
+                            
+                    posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
+
+                    #else:
+                        
+                    #    for gap in rev(sourceEntry.gaps):
+                    #        newNrOfNonGaps = curNrOfNonGaps + (gap.start - posWithinBlock)
+                        
+                        
+                    coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
+            
+                
+        return coord_dict
+        
+        
+    def _getCoordsForEntries(self, entries, dests, posWithinBlock):
+        coord_dict = {}#collections.defaultdict(dict)
+        
+        for e in entries: # faster than looping through entries everytime to get entry of genome x
+            if str(e.genomeNr) in dests: 
+            
+                if e.strand == "+":
+                    eSubgaps = e.getSubGapList(0,posWithinBlock)
+                    eSumgaps = 0
+                    if len(eSubgaps) > 0:
+                        eSumgaps = sum(end-start for start, end in eSubgaps.items())
+                        
+                    coord_dict[str(e.genomeNr)] = e.start + (posWithinBlock - eSumgaps)
+                else:
+                    eSubgaps = e.getSubGapList(e.end - posWithinBlock, e.end)
+                    eSumgaps = 0
+                    if len(eSubgaps) > 0:
+                        eSumgaps = sum(end-start for start, end in eSubgaps.items())
+                        
+                    coord_dict[str(e.genomeNr)] = (e.end - (posWithinBlock - eSumgaps)) * -1
+        
+        return coord_dict
+        
+        
+        
+class Resolver:    
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
@@ -374,7 +507,7 @@ class Resolver:
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             if consensusEntry is not None:
                 # consensus sequence entry of LCB should be on forward strand for easier calculation of coordinates
-                # if not reverse complement all entries in LCB
+                # if not: reverse complement all entries in LCB
                 if consensusEntry.strand == "-":
                     lcb.reverseComplementEntries()
                     consensusEntry = lcb.getEntry(consensusGenomeNr)
@@ -410,7 +543,7 @@ class Resolver:
                     recalculatedLCB.addEntries(newEntry)
                 consensusEntry = lcb.getEntry(consensusGenomeNr)
                 if consensusEntry is not None:
-                    pdb.set_trace()
+                    
                     orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
                     try:
                         recalculatedLCB.addEntries(orgEntries)
@@ -647,7 +780,80 @@ class Parser:
             return cons
     
     
-
+    def parseConsensusIndex(self, filename):
+        with open(filename, "r") as input:
+            line = input.readline()
+            m = re.match("#Fasta\t(.+)", line)
+            if m is not None:
+                fastaFile = m.group(1)
+            else:
+                pass ## raise exception
+            line = input.readline()
+            m = re.match("#XMFA\t(.+)", line)
+            if m is not None:
+                xmfaFile = m.group(1)
+            else:
+                pass ## raise exception
+            
+            alignment = Alignment(xmfaFile)
+            
+            lcb = LCB()
+            lcbLength = 0
+            lcbEndsList = [0]
+            
+            line = input.readline()
+            while line:
+                line = line.strip()
+                
+                if not (line == "" or line.startswith("#")): # skip rest of header - do I need genome info?
+                    
+                    fields = line.split("\t")
+                    id = fields[0]
+                    nr = int(fields[1])
+                    start = int(fields[2])
+                    end = int(fields[3])
+                    strand = fields[4]
+                    if id == "b":
+                        if lcbLength > 0:
+                            lcb.length = lcbLength
+                            alignment.addLCB(lcb)
+                            lcb = LCB()
+                        lcbLength = (end - start) + 1
+                        lcbEndsList.append(end)
+                    elif id == "s":
+                        e = SequenceEntry(nr, start, end, strand, '')
+                        
+                        if len(fields) == 6:
+                            gaps = fields[5]
+                            gapDict = {}
+                            for interval in gaps.split(";"):
+                                start, end = interval.split("-")
+                                gapDict[int(start)] =  int(end)
+                            e.gaps = gapDict
+                        lcb.entries.append(e)
+                    else:
+                        pass ## raise exception
+                    
+                line = input.readline()
+                
+            #consseq = Parser().blockDelimiter.join([ 'x'*len for len in lcbLengthList])
+            consensus = Consensus( sequence="", order=0, xmfaFile=xmfaFile, fastaFile=fastaFile)
+            consensus.blockStartIndices = lcbEndsList
+                
+        return (alignment, consensus)
+        
+        
+    def parseMappingCoordinates(self, coord_f):
+        with open(coord_f) as input:
+            
+            header = input.readline().strip()
+            source, dest = header.split("\t")
+            dests = dest.split(",")
+            coords = [int(line.strip()) for line in input]
+        
+        return source, dests, coords
+        
+        
 class Writer:
         _mauveFormatString = "#FormatVersion Mauve1\n"
         _mauveGenomeFile = '#Sequence{0}File\t{1}\n'
@@ -657,8 +863,8 @@ class Writer:
         
         _consensusIndexFasta = '#Fasta\t{0}\n'
         _consensusIndexXmfa = '#XMFA\t{0}\n'
-        _consensusIndexBlockLine = '\nb\t{0}\t{1}\t{2}\n'
-        _consensusIndexSequenceLine = 's\t{0}\t{1}\t{2}\t{3}\n'
+        _consensusIndexBlockLine = '\nb\t{0}\t{1}\t{2}\t+\n'
+        _consensusIndexSequenceLine = 's\t{0}\t{1}\t{2}\t{3}\t{4}\n'
         
         def writeXMFA(self, alignment, path, name, order=0):
             with open(path+"/"+name+".xmfa", "w") as output:
@@ -684,7 +890,20 @@ class Writer:
                                     )
                         output.write("\n".join(re.findall(".{1,80}", entry.sequence))+"\n")
                     output.write("=\n")
-            
+        
+        
+        def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
+            with open(os.path.abspath(path + "/"+ name + ".txt"), "w") as output:
+                output.write(''.join([str(source)," (source)", "\t"]))
+                output.write('\t'.join(dests))
+                output.write("\n")
+                pdb.set_trace()
+                for coord, cur_dict in coords_dict.items():
+                    output.write(str(coord) + "\t")
+                    new_coords = [str(cur_dict[dest]) for dest in dests]
+                    output.write('\t'.join(new_coords))
+                    output.write("\n")
+
         
         def writeConsensus(self, alignment, path, name, order=0):
             filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
@@ -692,11 +911,14 @@ class Writer:
             consensus = Consensus()
             self._writeConsensusIndex(alignment, filename, order)
             consensus.fromAlignment(alignment, order, filename)
+            
             with open(filename, "w") as output:
                 output.write(consensus.getFasta(name, False))
+            
             with open(filename + ".blockseparated.fasta", "w") as output:
                 output.write(consensus.getFasta(name, True))
 
+                
         def _writeConsensusIndex(self, alignment, fastafile, order=0):
             with open(fastafile+".idx", "w") as output:
                 output.write(self._consensusIndexFasta.format(fastafile))
@@ -720,12 +942,12 @@ class Writer:
                     counter += 1
                     for entry in lcb.entries:
                         output.write(self._consensusIndexSequenceLine.format
-                                            ( entry.genomeNr, entry.start, entry.end, 
+                                            ( entry.genomeNr, entry.start, entry.end, entry.strand,
                                               ';'.join(['-'.join( [str(start+1), str(end)]) for start, end in sorted(entry.gaps.items()) ])
                                             )
                                     )
-                
-            
+                        
+        
                     
 def main():
     global args
@@ -734,10 +956,21 @@ def main():
     writer = Writer()
     resolver = Resolver()
     realigner = Realigner()
+    mapper = Mapper()
     
     if args.task == "map":
         #parser.parseIndex(args.index_f)
-        align, consensus = parser.parseConsensusIndex(
+        pdb.set_trace()
+        sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
+        
+        source, dests, coordinates = parser.parseMappingCoordinates(args.coord_f)
+        
+        dests.append(source)    
+        dests = list(set(dests))
+        
+        coords_dict = mapper.mapCoordinates(sparse_align, sparse_consensus, source, dests, coordinates)
+        
+        writer.writeMappingCoordinates(source, dests, coords_dict, args.output_p, args.output_name)
     else:
         try:
             align = parser.parseXMFA(args.xmfa_f)
@@ -751,7 +984,7 @@ def main():
                     writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
                     
                 if args.task == "consensus":
-                    writer.writeConsensus(align, args.output_p, args.output_name, args.order)#, nodelimiter, args.consensusindex)
+                    writer.writeConsensus(align, args.output_p, args.output_name, args.order)
                 elif args.task == "split":
                     
                     try:
@@ -776,13 +1009,13 @@ if __name__ == '__main__':
     try:
                 
         parser = argparse.ArgumentParser()
-        parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file", required=True)
+        parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file")
         parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
         parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
         parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map"], required=False)
-        parser.add_argument("-i", "--index", dest="index_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...]. Then one coordinate per line.")
+        parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
         
         args = parser.parse_args()
         
@@ -794,6 +1027,11 @@ if __name__ == '__main__':
                 parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"map\"-task (-t/--task).")
             if args.xmfa_f is not None:
                 print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task)." , file=sys.stderr)
+            if args.coord_f is None:
+                parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
+        else:
+            if args.xmfa_f is None:
+                parser.error("the following arguments are required: -x/--xmfa")
         
         #if len(args) < 1:
         #    parser.error ('missing argument')
