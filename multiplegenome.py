@@ -426,7 +426,7 @@ class Mapper:
             
                 if addC:
                     consLength = sum([lcb.length for lcb in alignment.LCBs[0:lcbIdx]])
-                    coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps
+                    coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps + 1
                     
                 
                 if len(dests) > 0:
