@@ -272,8 +272,6 @@ class Consensus:
         
 class Realigner:
     
-    #def __init__(self):
-    
     def realign(self, alignment):
         # start with 2 sequences -> DO something for more or add exception (as with resolve)
         
@@ -367,22 +365,18 @@ class Mapper:
         if type(dests) is not list:
             dests = [dests]
 
-        
-        
         dests = sorted(dests)
         coordinates = sorted(coordinates)
-        
         coord_dict = collections.defaultdict(dict)
         
-        #coord_dict[source] = { coord: { coordinates
-        
         addC = ("c" in dests)
+        
+        # remove consensus-dest from list (calculation is different)
         if addC:
             dests = sorted(dests)[:-1]
         
         if source == "c":
         
-            
             for coord in coordinates:
                 
                 idx = bisect.bisect_left(consensus.blockStartIndices, coord) 
@@ -398,10 +392,9 @@ class Mapper:
                 coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
                             
         else:
-            ## find lcb for coord
             
             sourceBlocks = {}
-            
+            # store ends of blocks for lcb finding lcb for coords
             for i in range(len(alignment.LCBs)):
                 e = alignment.LCBs[i].getEntry(int(source))
                 if e is not None:
@@ -423,25 +416,22 @@ class Mapper:
                 else:
                     posWithinBlockWithoutGaps = sourceEntry.end - coord
             
-            
+                # add consensus coordinates to dict
                 if addC:
                     consLength = sum([lcb.length for lcb in alignment.LCBs[0:lcbIdx]])
                     coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps + 1
                     
-                
+                # check if dests other than consensus are needed
                 if len(dests) > 0:
                 
                     curNrOfNonGaps = 0
                     posWithinBlock = 0
                     lastGapEnd = 0
                 
-                
-                    ### HOW DO I DO THAT IF BLOCK IS ON - STRAND???? TEST REST!
-                    
-                    
-                    ## find position within block with gaps
-                    #if sourceEntry.strand == '+' :
-                    
+                    # go through gaps and add up non-gap characters 
+                    # stop if wanted position is located before next gap
+                    # calculate final position
+                    # coordinate is already strand specific
                     
                     for start, end in sourceEntry.gaps.items():
                         newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
@@ -451,15 +441,7 @@ class Mapper:
                             posWithinBlock = end
                             curNrOfNonGaps = newNrONonGaps
                             
-                            
                     posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
-
-                    #else:
-                        
-                    #    for gap in rev(sourceEntry.gaps):
-                    #        newNrOfNonGaps = curNrOfNonGaps + (gap.start - posWithinBlock)
-                        
-                        
                     coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
             
                 
