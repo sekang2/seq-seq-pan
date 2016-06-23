@@ -224,6 +224,7 @@ class SequenceEntry:
                 del subgaps[smallestStart]
         
         return subgaps
+
         
     def reverseComplement(self):
         self.strand = ("+" if self.strand == "-" else "-")
@@ -262,7 +263,6 @@ class Consensus:
         
         return (">"+header+"\n"+"\n".join(re.findall(".{1,80}", seq))+"\n")   
 
-        
         
     def _getDelimiterPositions(self):
         delimiter = Parser().blockDelimiter
@@ -356,7 +356,6 @@ class Realigner:
         
         return (seqOne, seqTwo)
         
-        
     
 class Mapper:
     
@@ -444,7 +443,7 @@ class Mapper:
                     posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
                     coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
             
-                
+
         return coord_dict
         
         
@@ -470,8 +469,7 @@ class Mapper:
                     coord_dict[str(e.genomeNr)] = (e.end - (posWithinBlock - eSumgaps)) * -1
         
         return coord_dict
-        
-        
+
         
 class Resolver:    
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
@@ -570,7 +568,7 @@ class Resolver:
                                   ] ) 
         
         delimiterPositions = sorted(list(itertools.chain.from_iterable(delimiterPositions)))
-        delimiterPositions[:] = (lambda start=middleStart: [x + start for x in delimiterPositions])()
+        delimiterPositions[:] = (lambda middleStart=middleStart: [x + middleStart for x in delimiterPositions])()
         
         if len(delimiterPositions) == 0 and len(startPositions) < 2: # no entries with delimiter sequence in LCB
             return [lcb]
@@ -619,7 +617,6 @@ class Resolver:
         
         return newEntry
 
-    
     
     def _calculateCoordinates(self, consensusEntry, consensus, orgLCBlist):
         
@@ -928,9 +925,7 @@ class Writer:
                                               ';'.join(['-'.join( [str(start+1), str(end)]) for start, end in sorted(entry.gaps.items()) ])
                                             )
                                     )
-                        
-        
-                    
+                                            
 def main():
     global args
     
@@ -941,8 +936,6 @@ def main():
     mapper = Mapper()
     
     if args.task == "map":
-        #parser.parseIndex(args.index_f)
-        pdb.set_trace()
         sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
         
         source, dests, coordinates = parser.parseMappingCoordinates(args.coord_f)
@@ -1015,9 +1008,6 @@ if __name__ == '__main__':
             if args.xmfa_f is None:
                 parser.error("the following arguments are required: -x/--xmfa")
         
-        #if len(args) < 1:
-        #    parser.error ('missing argument')
-        #else:
         main()
         sys.exit(0)
         
