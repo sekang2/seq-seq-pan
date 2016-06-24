@@ -44,7 +44,7 @@ class LcbInputError(InputError):
 class ConsensusXMFAInputError(InputError):
     
     def __init__(self):
-        self.message = "ERROR: XMFA with more than 2 genomes provided for splitting LCBs. Please align genomes to consensus sequence one by one, creating a new consensus sequence for every added genome."
+        self.message = "ERROR: XMFA with more than 2 genomes provided for splitting or merging LCBs. Please align genomes to consensus sequence one by one, creating a new consensus sequence for every added genome."
         
         
 class Genome:
@@ -604,6 +604,9 @@ class Resolver:
 
     
     def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr):
+        if len(alignment.genomes) > 2:
+            raise ConsensusXMFAInputError()
+            
         lcbs = alignment.getSortedLCBs(newGenomeNr)
         # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence 
         
