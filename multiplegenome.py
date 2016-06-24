@@ -496,15 +496,23 @@ class Resolver:
                 trim =  (len(consensusEntry.sequence) > len(consensusEntry.sequence.strip('N')))
                 split =  re.search("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", consensusEntry.sequence.strip('N')) is not None 
                 if split or trim:
-                    splitLcbs = self._splitLCB(lcb, consensusGenomeNr, newGenomeNr) # split LCB
-                    mergedSplitLcbs = self._mergeSplitLCBs(splitLcbs, consensusGenomeNr, newGenomeNr)
-                    for slcb in mergedSplitLcbs:
+                    splitLcbs = self._splitLCB(lcb, consensusGenomeNr, newGenomeNr) # split LCB                    
+                    for slcb in splitLcbs:
                         resolved.addLCB(slcb)
                 else:
                     resolved.addLCB(lcb)
             else:
                 resolved.addLCB(lcb)
         
+        
+        remerged = Alignment(alignment.xmfaFile)
+        for nr, genome in resolved.genomes.items():
+            remerged.addGenome(genome, nr)
+            
+        sortByNewLcbs = resolved.getSortedLCBs(newGenomeNr)
+        mergedSplitLcbs = self._mergeSplitLCBs(sortByNewLcbs, consensusGenomeNr, newGenomeNr)
+        for lcb in mergedSplitLcbs:
+            remerged.addLCB(lcb)
         
         
         recalculated = Alignment(orgAlignment.xmfaFile)
@@ -517,7 +525,7 @@ class Resolver:
         except ParameterError:
             raise ConsensusFastaFormatError()
         else:
-            for lcb in resolved.LCBs:
+            for lcb in remerged.LCBs:
                 recalculatedLCB = LCB(lcb.number)
                 newEntry = lcb.getEntry(newGenomeNr)
                 
@@ -627,7 +635,6 @@ class Resolver:
                     lastNewEntry = lastLCB.getEntry(newGenomeNr)
                     if lastNewEntry is not None:
                         tryNextEntry = False
-                        pdb.set_trace()
                         
                         # check if there is a gap at the end of former entry
                         sequence = lastNewEntry.sequence
@@ -644,7 +651,9 @@ class Resolver:
                         lastConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
                         if lastConsensusEntry is not None:
                             lastConsensusEntry.sequence += ("-"*nrGaps)
-                
+                    
+                    lastLCB.length += nrGaps
+                    
                 # previous entry did not work, try to prepend to next entry
                 if tryNextEntry and len(splitLCBs) > 1:
                     nextLCB = splitLCBs[i+1]
@@ -666,7 +675,9 @@ class Resolver:
                         nextConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
                         if nextConsensusEntry is not None:
                             nextConsensusEntry.sequence = ("-"*nrGaps) + nextConsensusEntry.sequence
-            
+                        
+                        nextLCB.length += nrGaps
+                        
             # entry should not be merged or could neither be appended nor prepended 
             # add LCBs to alignment as it is
             if tryNextEntry:
