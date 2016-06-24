@@ -510,7 +510,7 @@ class Resolver:
             remerged.addGenome(genome, nr)
             
         sortByNewLcbs = resolved.getSortedLCBs(newGenomeNr)
-        mergedSplitLcbs = self._mergeSplitLCBs(sortByNewLcbs, consensusGenomeNr, newGenomeNr)
+        mergedSplitLcbs = self.mergeLCBs(sortByNewLcbs, consensusGenomeNr, newGenomeNr)
         for lcb in mergedSplitLcbs:
             remerged.addLCB(lcb)
         
@@ -612,13 +612,13 @@ class Resolver:
     
 
     
-    def _mergeSplitLCBs(self, splitLCBs, consensusGenomeNr, newGenomeNr):
+    def mergeLCBs(self, lcbs, consensusGenomeNr, newGenomeNr):
         # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence 
         mergedSplitLCBs = []
         
-        for i in range(len(splitLCBs)):
+        for i in range(len(lcbs)):
             #pdb.set_trace()
-            lcb = splitLCBs[i]
+            lcb = lcbs[i]
             newEntry = lcb.getEntry(newGenomeNr)
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             tryNextEntry = True
@@ -655,7 +655,7 @@ class Resolver:
                     lastLCB.length += nrGaps
                     
                 # previous entry did not work, try to prepend to next entry
-                if tryNextEntry and len(splitLCBs) > 1:
+                if tryNextEntry and len(lcbs) > 1:
                     nextLCB = splitLCBs[i+1]
                     nextNewEntry = lastLCB.getEntry(newGenomeNr)
                     if nextNewEntry is not None:
@@ -1078,7 +1078,7 @@ if __name__ == '__main__':
         parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
         parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
         parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map"], required=False)
+        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map", "merge"], required=False)
         parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
         
         args = parser.parse_args()
