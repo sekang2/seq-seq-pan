@@ -9,26 +9,8 @@ GENOME_NAMES = [line.split(";")[1].strip() for line in GENOMES]
 def split_or_not(wildcards):
     return(wildcards['genomes']+"_split.xmfa" if len(wildcards['genomes'].split("+")) > 2 else wildcards['genomes']+"_realign.xmfa")
 
+
 def mauve_input(wildcards):
-    genomes_arr = wildcards['genomes'].split("+")
-    last_genome = genomes_arr[-1]
-    first_genomes = genomes_arr[:-1]
-    
-    print(genomes_arr)
-    print(last_genome)
-    
-    print(first_genomes)
-    print(len(first_genomes))
-    
-    if len(first_genomes) == 1:
-        consgen = GENOME_DICT[first_genomes[0]]
-    else:
-        consgen = "_".join(first_genomes)+"_consensus.fasta.blockseparated.fasta"
-        
-        return [ consgen, GENOME_DICT.get(last_genome, "")]
-
-
-def mauve_input_2(wildcards):
     genomes_arr = wildcards['genomes'].split("+")
     last_genome = genomes_arr[-1]
     
@@ -36,13 +18,9 @@ def mauve_input_2(wildcards):
     
     
 def consensus_file(wildcards):
-    #pdb.set_trace()
     genomes_arr = wildcards['genomes'].split("+")
     
     first_genomes = genomes_arr[:-1]
-    
-    print(first_genomes)
-    print(len(first_genomes))
     
     if len(first_genomes) == 1:
         consgen = GENOME_DICT[first_genomes[0]]
@@ -82,7 +60,7 @@ rule realign:
         
         
 rule align:
-    input: consensus_file, mauve_input_2
+    input: consensus_file, mauve_input
     output: "{genomes,[^_]+}.xmfa"
     shell:
         "progressiveMauve {input[0]} {input[1]} --output={output}"
