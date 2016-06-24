@@ -7,7 +7,7 @@ GENOME_DICT = {line.split(";")[1].strip() : line.split(";")[0] for line in GENOM
 GENOME_NAMES = [line.split(";")[1].strip() for line in GENOMES]
 
 def split_or_not(wildcards):
-    return(wildcards['genomes']+"_split.xmfa" if len(wildcards['genomes'].split("+")) > 2 else wildcards['genomes']+"_realign.xmfa")
+    return(wildcards['genomes']+"_split.xmfa" if len(wildcards['genomes'].split("+")) > 2 else wildcards['genomes']+"_merge.xmfa")
 
 
 def mauve_input(wildcards):
@@ -64,3 +64,9 @@ rule align:
     output: "{genomes,[^_]+}.xmfa"
     shell:
         "progressiveMauve {input[0]} {input[1]} --output={output}"
+        
+rule merge:
+    input: "{genomes}_realign.xmfa"
+    output: "{genomes}_merge.xmfa"
+    shell:
+        "{SCRIPT} -x {input} -p . -n {wildcards.genomes} -t merge"
