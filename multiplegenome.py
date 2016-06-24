@@ -504,16 +504,7 @@ class Resolver:
             else:
                 resolved.addLCB(lcb)
         
-        
-        remerged = Alignment(alignment.xmfaFile)
-        for nr, genome in resolved.genomes.items():
-            remerged.addGenome(genome, nr)
-            
-        sortByNewLcbs = resolved.getSortedLCBs(newGenomeNr)
-        mergedSplitLcbs = self.mergeLCBs(sortByNewLcbs, consensusGenomeNr, newGenomeNr)
-        for lcb in mergedSplitLcbs:
-            remerged.addLCB(lcb)
-        
+        remerged = self.mergeLCBs(resolved, consensusGenomeNr, newGenomeNr)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
@@ -612,8 +603,10 @@ class Resolver:
     
 
     
-    def mergeLCBs(self, lcbs, consensusGenomeNr, newGenomeNr):
+    def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr):
+        lcbs = alignment.getSortedLCBs(newGenomeNr)
         # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence 
+        
         mergedSplitLCBs = []
         
         for i in range(len(lcbs)):
@@ -683,7 +676,14 @@ class Resolver:
             if tryNextEntry:
                 mergedSplitLCBs.append(lcb)
 
-        return mergedSplitLCBs
+        merged = Alignment(alignment.xmfaFile)
+        for nr, genome in alignment.genomes.items():
+            merged.addGenome(genome, nr)
+        
+        for lcb in mergedSplitLCBs:
+            merged.addLCB(lcb)
+                
+        return merged
         
         
     def _getNewEntry(self, entry, splitstart, splitend):
@@ -1046,6 +1046,10 @@ def main():
                 if args.task == "realign":
                     realign = realigner.realign(align)
                     writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
+                
+                if args.task == "merge":
+                    merged = resolver.mergeLCBs(align, 1, 2)
+                    writer.writeXMFA(merged, args.output_p, args.output_name + "_merge", args.order)
                     
                 if args.task == "consensus":
                     writer.writeConsensus(align, args.output_p, args.output_name, args.order)
@@ -1056,7 +1060,7 @@ def main():
                         org_align = parser.parseXMFA(consensus.xmfaFile)
                         splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
                     except (XMFAHeaderFormatError, LcbInputError) as e:
-                            print(e.message + "(" + consensus.xmfaFile + ")")
+                        print(e.message + "(" + consensus.xmfaFile + ")")
                     except (ConsensusFastaFormatError, ConsensusXMFAInputError) as e:
                         print(e.message)
                     else:
