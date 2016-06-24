@@ -496,13 +496,16 @@ class Resolver:
                 trim =  (len(consensusEntry.sequence) > len(consensusEntry.sequence.strip('N')))
                 split =  re.search("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", consensusEntry.sequence.strip('N')) is not None 
                 if split or trim:
-                    splitLcbs = self._splitLCB(lcb, consensusGenomeNr) # split LCB
-                    for slcb in splitLcbs:
+                    splitLcbs = self._splitLCB(lcb, consensusGenomeNr, newGenomeNr) # split LCB
+                    mergedSplitLcbs = self._mergeSplitLCBs(splitLcbs, consensusGenomeNr, newGenomeNr)
+                    for slcb in mergedSplitLcbs:
                         resolved.addLCB(slcb)
                 else:
                     resolved.addLCB(lcb)
             else:
                 resolved.addLCB(lcb)
+        
+        
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
@@ -535,12 +538,13 @@ class Resolver:
             return recalculated
         
         
-    def _splitLCB(self, lcb, consensusGenomeNr):
+    def _splitLCB(self, lcb, consensusGenomeNr, newGenomeNr):
         splitLCBs = []
         delimiterPositions = []
         startPositions = [0]
         
         consensusEntry = lcb.getEntry(consensusGenomeNr)
+        #newEntry = lcb.getEntry(newGenomeNr)
         
         middleStart = 0
         middleEnd = lcb.length
@@ -594,9 +598,83 @@ class Resolver:
                 else:    
                     splitLCBs.append(slcb)
         
-        return splitLCBs
         
+                
+        return splitLCBs
+    
 
+    
+    def _mergeSplitLCBs(self, splitLCBs, consensusGenomeNr, newGenomeNr):
+        # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence 
+        mergedSplitLCBs = []
+        
+        for i in range(len(splitLCBs)):
+            #pdb.set_trace()
+            lcb = splitLCBs[i]
+            newEntry = lcb.getEntry(newGenomeNr)
+            consensusEntry = lcb.getEntry(consensusGenomeNr)
+            tryNextEntry = True
+            
+            # check if new entry is small and only created by splitting (consensus is None)
+            if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= 10:
+                
+                nrGaps = len(newEntry.sequence)
+                #sequence = newEntry.sequence
+                
+                # try to append to previous entry
+                if i > 0:
+                    lastLCB = mergedSplitLCBs[-1]
+                    lastNewEntry = lastLCB.getEntry(newGenomeNr)
+                    if lastNewEntry is not None:
+                        tryNextEntry = False
+                        pdb.set_trace()
+                        
+                        # check if there is a gap at the end of former entry
+                        sequence = lastNewEntry.sequence
+                        m = re.search("-+$", sequence)
+                        if m is not None:
+                            pos = m.start(0)
+                            nrGaps -= (len(sequence) - pos)
+                            sequence = sequence[:pos]
+                            
+                        
+                        lastNewEntry.sequence = sequence + newEntry.sequence
+                        lastNewEntry.end = newEntry.end
+                    
+                        lastConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
+                        if lastConsensusEntry is not None:
+                            lastConsensusEntry.sequence += ("-"*nrGaps)
+                
+                # previous entry did not work, try to prepend to next entry
+                if tryNextEntry and len(splitLCBs) > 1:
+                    nextLCB = splitLCBs[i+1]
+                    nextNewEntry = lastLCB.getEntry(newGenomeNr)
+                    if nextNewEntry is not None:
+                        tryNextEntry = False
+                        
+                        # check if there is a gap at the start of former entry
+                        sequence = nextNewEntry.sequence
+                        m = re.search("^-+", sequence)
+                        if m is not None:
+                            pos = m.end(0)
+                            sequence = sequence[pos:]
+                            nrGaps -= pos
+                        
+                        nextNewEntry.sequence = newEntry.sequence + sequence
+                        nextNewEntry.start = newEntry.start
+                    
+                        nextConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
+                        if nextConsensusEntry is not None:
+                            nextConsensusEntry.sequence = ("-"*nrGaps) + nextConsensusEntry.sequence
+            
+            # entry should not be merged or could neither be appended nor prepended 
+            # add LCBs to alignment as it is
+            if tryNextEntry:
+                mergedSplitLCBs.append(lcb)
+
+        return mergedSplitLCBs
+        
+        
     def _getNewEntry(self, entry, splitstart, splitend):
         seq = entry.sequence[splitstart:splitend]
         if seq == "" or re.search("[^N-]", seq) is None:
@@ -619,7 +697,7 @@ class Resolver:
 
     
     def _calculateCoordinates(self, consensusEntry, consensus, orgLCBlist):
-        
+        #pdb.set_trace()
         # calculate in which consensus block this entry is located
         idx = bisect.bisect_left(consensus.blockStartIndices, consensusEntry.start) 
         
