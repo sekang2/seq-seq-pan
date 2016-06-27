@@ -73,4 +73,4 @@ rule align:
     output: "{genomes,[^_]+}.xmfa"
     log: "{genomes}.progressiveMauve.log.txt"
     shell:
-        "progressiveMauve {input[0]} {input[1]} --output={output} > {log}"
+        "progressiveMauve {input[0]} {input[1]} --output={output} --max-gapped-aligner-length=900 > {log} "
