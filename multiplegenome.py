@@ -504,7 +504,6 @@ class Resolver:
             else:
                 resolved.addLCB(lcb)
         
-        remerged = self.mergeLCBs(resolved, consensusGenomeNr, newGenomeNr)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
@@ -516,7 +515,7 @@ class Resolver:
         except ParameterError:
             raise ConsensusFastaFormatError()
         else:
-            for lcb in remerged.LCBs:
+            for lcb in resolved.LCBs:
                 recalculatedLCB = LCB(lcb.number)
                 newEntry = lcb.getEntry(newGenomeNr)
                 
