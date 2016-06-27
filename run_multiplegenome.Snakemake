@@ -71,5 +71,6 @@ rule merge:
 rule align:
     input: consensus_file, mauve_input
     output: "{genomes,[^_]+}.xmfa"
+    log: "{genomes}.progressiveMauve.log.txt"
     shell:
-        "progressiveMauve {input[0]} {input[1]} --output={output}"
+        "progressiveMauve {input[0]} {input[1]} --output={output} > {log}"
