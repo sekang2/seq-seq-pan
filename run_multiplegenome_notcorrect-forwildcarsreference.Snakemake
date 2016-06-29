@@ -1,0 +1,95 @@
+import pdb
+SCRIPT="python3.4 /home/jandrasitsc/scripts/multiplegenomealignment/multiplegenome.py"
+with open(config["genomefile"], "r") as f:
+    GENOMES = f.readlines()
+
+#GENOME_DICT = {line.split(";")[1].strip() : line.split(";")[0] for line in GENOMES}
+#GENOME_NAMES = [line.split(";")[1].strip() for line in GENOMES]
+
+GENOME_DICT = {str(idx): {"name": GENOMES[idx].split(";")[1].strip(), "file":GENOMES[idx].split(";")[0].strip()} for idx in range(len(GENOMES))}
+GENOME_NAMES = [str(idx) for idx in range(len(GENOMES))]
+
+# merge if alignment is not split
+# merging is done in splitting step anyway
+def split_or_not(wildcards):
+    return("add"+wildcards["genome"]+"_split.xmfa" if int(newnr) > 2 else "add"+wildcards["genome"]+"_realign.xmfa")
+    
+
+def mauve_input(wildcards):
+    
+    return (GENOME_DICT[wildcards["genome"]]["file"])
+    
+    
+def consensus_file(wildcards):
+    newnr = prev_genome(wildcards)
+    
+    if newnr == "0":
+        consgen = GENOME_DICT[newnr]["file"]
+    else:
+        consgen = "add"+newnr+"_consensus.fasta.blockseparated.fasta"
+        
+    return consgen
+    
+
+def prev_genome(wildcards):
+    curNr = int(wildcards['genome'])
+    curNr -= 1
+    return str(curNr)
+    
+    
+rule all:
+    input: config["outfilename"]+"_consensus.fasta"
+    
+    
+rule fn_translate:
+    input: "add"+str(len(GENOME_NAMES))+"_consensus.fasta.blockseparated.fasta"
+    output: config["outfilename"]+"_consensus.fasta"
+    shell:
+        '''
+        name={input}
+        out={output}
+        name="${{name//_consensus.fasta.blockseparated.fasta}}"
+        out="${{out//_consensus.fasta}}"
+        cp $name"_consensus.fasta.blockseparated.fasta" $out"_consensus.fasta.blockseparated.fasta"
+        cp $name"_consensus.fasta" $out"_consensus.fasta"
+        cp $name"_consensus.fasta.idx" $out"_consensus.fasta.idx"
+        cp $name"_split.xmfa" $out"_split.xmfa"
+        '''
+    
+rule consensus:
+    input: split_or_not
+    
+    output:"add{genome}_consensus.fasta.blockseparated.fasta"
+    
+    shell:
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
+        
+
+rule split:
+    input:  xmfa= lambda wildcards: expand("add{prevgen}_realign.xmfa", prevgen=prev_genome(wildcards)), 
+            consensus=consensus_file
+    output: "add{genome,\d+}_split.xmfa"
+    shell:
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t split -c {input.consensus}"
+        
+        
+rule realign:
+    input: lambda wildcards: expand("add{prevgen}.xmfa", prevgen=prev_genome(wildcards))
+    output: "add{genome,\d+}_realign.xmfa"
+    shell:
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
+
+        
+rule merge:
+    input: lambda wildcards: expand("add{prevgen}_realign.xmfa", prevgen=prev_genome(wildcards))
+    output: "add{genome,\d+}_merge.xmfa"
+    shell:
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
+        
+        
+rule align:
+    input: consensus_file, mauve_input
+    output: "add{genome, \d+}.xmfa"
+    log: "add{genome}.progressiveMauve.log.txt"
+    shell:
+        "progressiveMauve {input[0]} {input[1]} --output={output} --max-gapped-aligner-length=900 > {log} "
