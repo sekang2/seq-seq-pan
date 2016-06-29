@@ -26,7 +26,7 @@ def mauve_input(wildcards):
     
 def consensus_file(wildcards):
     
-    newnr = str(int(wildcards['genome']) - 1)
+    newnr = prev_genome(wildcards)
     
     if newnr == "0":
         consgen = GENOME_DICT[newnr]["file"]
@@ -34,6 +34,10 @@ def consensus_file(wildcards):
         consgen = "add"+newnr+"_consensus.fasta.blockseparated.fasta"
         
     return consgen
+
+
+def prev_genome(wildcards):
+    return(str(int(wildcards['genome']) - 1))
     
     
 rule all:
@@ -71,7 +75,8 @@ rule consensus:
         
 
 rule split:
-    input:  xmfa= "add{genome}_realign.xmfa", 
+    input:  xmfa_prev= lambda wildcards: split_or_not({"genome":prev_genome(wildcards)}), 
+            xmfa= "add{genome}_realign.xmfa", 
             consensus=consensus_file
     output: temp("add{genome,\d+}_split.xmfa")
     shell:
