@@ -1,4 +1,7 @@
-import pdb
+import sys
+
+sys.setrecursionlimit(1000000)
+
 SCRIPT="python3.4 /home/jandrasitsc/scripts/multiplegenomealignment/multiplegenome.py"
 
 with open(config["genomefile"], "r") as f:
@@ -61,7 +64,7 @@ rule fn_translate:
 rule consensus:
     input: split_or_not
     
-    output:"add{genome}_consensus.fasta.blockseparated.fasta"
+    output: temp("add{genome}_consensus.fasta.blockseparated.fasta")
     
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
@@ -70,28 +73,28 @@ rule consensus:
 rule split:
     input:  xmfa= "add{genome}_realign.xmfa", 
             consensus=consensus_file
-    output: "add{genome,\d+}_split.xmfa"
+    output: temp("add{genome,\d+}_split.xmfa")
     shell:
         "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t split -c {input.consensus}"
         
         
 rule realign:
     input: "add{genome}.xmfa"
-    output: "add{genome,\d+}_realign.xmfa"
+    output: temp("add{genome,\d+}_realign.xmfa")
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
 
         
 rule merge:
     input: "add{genome}_realign.xmfa"
-    output: "add{genome,\d+}_merge.xmfa"
+    output: temp("add{genome,\d+}_merge.xmfa")
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
         
         
 rule align:
     input: consensus_file, mauve_input
-    output: "add{genome, \d+}.xmfa"
-    log: "add{genome}.progressiveMauve.log.txt"
+    output: temp("add{genome, \d+}.xmfa")
+    log: temp("add{genome}.progressiveMauve.log.txt")
     shell:
         "progressiveMauve {input[0]} {input[1]} --output={output} --max-gapped-aligner-length=900 > {log} "
