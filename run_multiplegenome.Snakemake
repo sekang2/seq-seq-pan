@@ -42,7 +42,6 @@ rule fn_translate:
     output: config["outfilename"]+"_consensus.fasta"
     shell:
         '''
-        echo {GENOME_NAMES}
         name={input}
         out={output}
         name="${{name//_consensus.fasta.blockseparated.fasta}}"
@@ -51,6 +50,11 @@ rule fn_translate:
         cp $name"_consensus.fasta" $out"_consensus.fasta"
         cp $name"_consensus.fasta.idx" $out"_consensus.fasta.idx"
         cp $name"_split.xmfa" $out"_split.xmfa"
+        
+        sed -i "1 s/$name/$out/g" $out"_consensus.fasta"
+        sed -i "1 s/$name/$out/g" $out"_consensus.fasta.blockseparated.fasta"
+        sed -i "1 s/$name/$out/" $out"_consensus.fasta.idx"
+        sed -i "2 s/$name/$out/" $out"_consensus.fasta.idx"
         '''
 
         
