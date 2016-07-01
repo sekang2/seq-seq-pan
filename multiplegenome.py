@@ -961,6 +961,11 @@ class Writer:
         _consensusIndexBlockLine = '\nb\t{0}\t{1}\t{2}\t+\n'
         _consensusIndexSequenceLine = 's\t{0}\t{1}\t{2}\t{3}\t{4}\n'
         
+        _mafFormatString = "##maf version=1\n"
+        _mafSequenceHeader = "\na label={0}\n"
+        _mafEntryHeader = "s {1}\t{1} {2} {3} {4} {5}\n"
+        
+        
         def writeXMFA(self, alignment, path, name, order=0):
             with open(path+"/"+name+".xmfa", "w") as output:
                 output.write(self._mauveFormatString)
@@ -986,6 +991,34 @@ class Writer:
                         output.write("\n".join(re.findall(".{1,80}", entry.sequence))+"\n")
                     output.write("=\n")
         
+        
+        def writeMAF(self, alignment, path, name, order=0):
+            with open(path+"/"+name+".maf", "w") as output:
+                output.write(self._mafFormatString)
+                               
+                for nr, genome in sorted(alignment.genomes.items()):
+                    output.write(self._mauveGenomeFile.format(nr, genome.filepath))
+                    if genome.entry > 0 :
+                        output.write(self._mauveGenomeEntry.format(nr, genome.entry))
+                    output.write(self._mauveGenomeFormat.format(nr, genome.format))
+                
+                genome_lengths = {}
+                sortedLCBs = alignment.getSortedLCBs(order)
+                
+                for lcb in sortedLCBs:
+                    for entry in lcb.entries:
+                        genome_lengths[entry.genomeNr] = genome_lengths.get(entry.genomeNr, 0) + (len(entry.sequence) - entry.sequence.count('-'))
+                
+                
+                sortedLCBs = alignment.getSortedLCBs(order)
+                count = 0
+                for lcb in sortedLCBs:
+                    count += 1
+                    output.write(self._mafSequenceHeader.format(count))
+                    for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
+                        output.write(self._mafEntryHeader.format(entry.genomeNr, entry.start, (entry.end - entry.start), genome_lengths[entry.genomeNr], entry.strand, entry.sequence))
+                    
+                
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
             with open(os.path.abspath(path + "/"+ name + ".txt"), "w") as output:
@@ -1105,6 +1138,9 @@ def main():
                 elif args.task == "xmfa":
                     writer.writeXMFA(align, args.output_p, args.output_name, args.order)
                 
+                elif args.task == "maf":
+                    writer.writeMAF(align, args.output_p, args.output_name, args.order)
+                    
             except ParameterError as e:
                 print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
     return(0)
@@ -1118,7 +1154,7 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
     parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map", "merge"], required=False)
+    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge|maf) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "maf", "map", "merge"], required=False)
     parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
     
     args = parser.parse_args()
