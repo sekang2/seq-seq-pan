@@ -41,34 +41,46 @@ def prev_genome(wildcards):
     
     
 rule all:
-    input: config["outfilename"]+"_consensus.fasta"
-    
+    input:  config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
+            config["outfilename"]+"_consensus.fasta.idx",
+            config["outfilename"]+"_consensus.fasta",
+            config["outfilename"]+"_split.xmfa"    
     
 rule fn_translate:
-    input: "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta"
-    output: config["outfilename"]+"_consensus.fasta"
+    input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
+            ci = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.idx",
+            c = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta",
+            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_split.xmfa"
+            
+    output: cb = config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
+            ci = config["outfilename"]+"_consensus.fasta.idx",
+            c = config["outfilename"]+"_consensus.fasta",
+            xmfa = config["outfilename"]+"_split.xmfa"
+            
     shell:
         '''
-        name={input}
-        out={output}
-        name="${{name//_consensus.fasta.blockseparated.fasta}}"
+        name={input.c}
+        out={output.c}
+        name="${{name//_consensus.fasta}}"
         out="${{out//_consensus.fasta}}"
-        cp $name"_consensus.fasta.blockseparated.fasta" $out"_consensus.fasta.blockseparated.fasta"
-        cp $name"_consensus.fasta" $out"_consensus.fasta"
-        cp $name"_consensus.fasta.idx" $out"_consensus.fasta.idx"
-        cp $name"_split.xmfa" $out"_split.xmfa"
+        cp {input.cb} {output.cb}
+        cp {input.ci} {output.ci}
+        cp {input.c} {output.c}
+        cp {input.xmfa} {output.xmfa}
         
-        sed -i "1 s/$name/$out/g" $out"_consensus.fasta"
-        sed -i "1 s/$name/$out/g" $out"_consensus.fasta.blockseparated.fasta"
-        sed -i "1 s/$name/$out/" $out"_consensus.fasta.idx"
-        sed -i "2 s/$name/$out/" $out"_consensus.fasta.idx"
+        sed -i "1 s/$name/$out/g" {output.c}
+        sed -i "1 s/$name/$out/g" {output.cb}
+        sed -i "1 s/$name/$out/" {output.ci}
+        sed -i "2 s/$name/$out/" {output.ci}
         '''
 
         
 rule consensus:
     input: split_or_not
     
-    output: temp("add{genome}_consensus.fasta.blockseparated.fasta")
+    output: temp("add{genome}_consensus.fasta.blockseparated.fasta"),
+            temp("add{genome}_consensus.fasta.idx"),
+            temp("add{genome}_consensus.fasta")
     
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
@@ -98,8 +110,15 @@ rule merge:
         
         
 rule align:
-    input: consensus_file, mauve_input
-    output: temp("add{genome, \d+}.xmfa")
-    log: temp("add{genome}.progressiveMauve.log.txt")
+    input:  consensus_file, 
+            mauve_input
+    output: temp("add{genome, \d+}.xmfa"), 
+            temp("add{genome, \d+}.xmfa.bbcols"), 
+            temp("add{genome, \d+}.xmfa.backbone")
+    log: "add{genome}.progressiveMauve.log.txt"
     shell:
-        "progressiveMauve {input[0]} {input[1]} --output={output} --max-gapped-aligner-length=900 > {log} "
+        '''
+        progressiveMauve {input[0]} {input[1]} --output={output[0]} --max-gapped-aligner-length=900 > {log} 
+        rm {input[0]}.sslist
+        rm {input[1]}.sslist
+        '''
