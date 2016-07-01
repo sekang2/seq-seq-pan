@@ -204,7 +204,7 @@ class LCB:
         # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
         # return character (or "|" if something goes wrong
         
-        c = ''.join(sorted(list(set(''.join([ self._iupac_dict.get(x, "|") for x in bases]))))).replace("-", "")
+        c = ''.join(sorted(list(set(''.join([ self._iupac_dict.get(x.upper(), "|") for x in bases]))))).replace("-", "")
         return self._iupac_dict.get(c, "|")
 
         
@@ -963,7 +963,7 @@ class Writer:
         
         _mafFormatString = "##maf version=1\n"
         _mafSequenceHeader = "\na label={0}\n"
-        _mafEntryHeader = "s {1}\t{1} {2} {3} {4} {5}\n"
+        _mafEntryHeader = "s {0}\t{1} {2} {3} {4} {5}\n"
         
         
         def writeXMFA(self, alignment, path, name, order=0):
@@ -993,6 +993,7 @@ class Writer:
         
         
         def writeMAF(self, alignment, path, name, order=0):
+            
             with open(path+"/"+name+".maf", "w") as output:
                 output.write(self._mafFormatString)
                                
@@ -1009,8 +1010,6 @@ class Writer:
                     for entry in lcb.entries:
                         genome_lengths[entry.genomeNr] = genome_lengths.get(entry.genomeNr, 0) + (len(entry.sequence) - entry.sequence.count('-'))
                 
-                
-                sortedLCBs = alignment.getSortedLCBs(order)
                 count = 0
                 for lcb in sortedLCBs:
                     count += 1
