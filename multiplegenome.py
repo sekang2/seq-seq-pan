@@ -975,7 +975,7 @@ class Writer:
         
         _mafFormatString = "##maf version=1\n"
         _mafSequenceHeader = "\na label={0}\n"
-        _mafEntryHeader = "s {0}\t{1} {2} {3} {4} {5}\n"
+        _mafEntryHeader = "s {0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
         
         
         def writeXMFA(self, alignment, path, name, order=0):
@@ -1025,7 +1025,7 @@ class Writer:
                     count += 1
                     output.write(self._mafSequenceHeader.format(count))
                     for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
-                        output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, (entry.end - entry.start), genome_lengths[entry.genomeNr], entry.strand, entry.sequence))
+                        output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, (entry.end - entry.start), entry.strand, genome_lengths[entry.genomeNr], entry.sequence))
                     
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
