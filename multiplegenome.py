@@ -30,6 +30,11 @@ class ConsensusFastaFormatError(FormatError):
         self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
        
 
+class ConsensusFastaInputError(InputError):
+    def __init__(self, character):
+        self.message = "ERROR: Your consensus sequence contains a non-IUPAC character: "+ character + "."
+
+       
 class XMFAHeaderFormatError(FormatError):
     def __init__(self, header):
         self.message = "ERROR: XMFA sequence header \"" + header + "\" does not apply to XMFA header format rule: \"> seq:start-end strand\"."
@@ -202,10 +207,16 @@ class LCB:
         # sort list
         # remove gap character
         # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
-        # return character (or "|" if something goes wrong
-        
-        c = ''.join(sorted(list(set(''.join([ self._iupac_dict.get(x.upper(), "|") for x in bases]))))).replace("-", "")
-        return self._iupac_dict.get(c, "|")
+        # return character (or "|" if something goes wrong)
+        try:
+            c = ''.join(sorted(list(set(''.join([ self._iupac_dict[x.upper()] for x in bases]))))).replace("-", "")
+        except KeyError as e:
+            raise ConsensusFastaInputError(e.args[0])
+        else:
+            try:
+                return self._iupac_dict.get(c, "|")
+            except KeyError as e:
+                raise ConsensusFastaInputError(e.args[0])
 
         
 class SequenceEntry:
