@@ -1008,12 +1008,6 @@ class Writer:
             
             with open(path+"/"+name+".maf", "w") as output:
                 output.write(self._mafFormatString)
-                               
-                #for nr, genome in sorted(alignment.genomes.items()):
-                #    output.write(self._mauveGenomeFile.format(nr, genome.filepath))
-                #    if genome.entry > 0 :
-                #        output.write(self._mauveGenomeEntry.format(nr, genome.entry))
-                #    output.write(self._mauveGenomeFormat.format(nr, genome.format))
                 
                 genome_names = {}
                 for nr, genome in alignment.genomes.items():
@@ -1033,7 +1027,6 @@ class Writer:
                     for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
                         output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, (entry.end - entry.start), genome_lengths[entry.genomeNr], entry.strand, entry.sequence))
                     
-                
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
             with open(os.path.abspath(path + "/"+ name + ".txt"), "w") as output:
