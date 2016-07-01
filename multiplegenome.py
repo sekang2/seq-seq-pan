@@ -634,12 +634,12 @@ class Resolver:
                     recalculatedLCB.addEntries(newEntry)
                 consensusEntry = lcb.getEntry(consensusGenomeNr)
                 if consensusEntry is not None:
-                    
                     orgEntries = self._calculateCoordinates(consensusEntry, consensus, sortedOrgLCBs)
                     try:
                         recalculatedLCB.addEntries(orgEntries)
                     except LcbInputError as e:
-                        print(e.message + " (Error occured in recalculating coordinates step.)")
+                        e.message = e.message + " (Error occured in recalculating coordinates step.)"
+                        raise e
                 
                 recalculated.addLCB(recalculatedLCB)
             
@@ -652,7 +652,6 @@ class Resolver:
         startPositions = [0]
         
         consensusEntry = lcb.getEntry(consensusGenomeNr)
-        #newEntry = lcb.getEntry(newGenomeNr)
         
         middleStart = 0
         middleEnd = lcb.length
@@ -752,6 +751,7 @@ class Resolver:
         # get sequence of original blocks the same length as the consensus entry sequence minus number of gaps
         endSequenceSub = startWithinBlock + len(consensusEntry.sequence) - sumgaps
         
+        
         orgEntries = []
         for e in orgLCB.entries:
             start = e.start + startWithinBlock
@@ -774,6 +774,7 @@ class Resolver:
             # include all gaps in consensus sequence in original sequence for correct alignment
             for gstart, gend in sorted(consensusEntry.gaps.items()):
                 sequence = self._insertGap(sequence, gstart, gend-gstart)
+            
             
             if sequence != "" and re.search("[^N-]", sequence) is not None:
                 newEntry.sequence = sequence
@@ -1024,7 +1025,7 @@ class Writer:
                 output.write(''.join([str(source)," (source)", "\t"]))
                 output.write('\t'.join(dests))
                 output.write("\n")
-                pdb.set_trace()
+                
                 for coord, cur_dict in coords_dict.items():
                     output.write(str(coord) + "\t")
                     new_coords = [str(cur_dict[dest]) for dest in dests]
