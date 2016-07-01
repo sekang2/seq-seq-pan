@@ -44,7 +44,8 @@ rule all:
     input:  config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
-            config["outfilename"]+"_split.xmfa"    
+            config["outfilename"]+"_split.xmfa",
+            config["outfilename"]+"_split.maf"            
     
 rule fn_translate:
     input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
@@ -122,3 +123,10 @@ rule align:
         rm {input[0]}.sslist
         rm {input[1]}.sslist
         '''
+        
+        
+rule maf:
+    input: {genome}.xmfa
+    output: {genome}.maf
+    shell:
+        "{SCRIPT} -x {input} -p . -n {wildcards.genome} -t maf"
