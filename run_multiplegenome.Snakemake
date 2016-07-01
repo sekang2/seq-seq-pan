@@ -126,7 +126,7 @@ rule align:
         
         
 rule maf:
-    input: {genome}.xmfa
-    output: {genome}.maf
+    input: "{genome}.xmfa"
+    output: "{genome}.maf"
     shell:
         "{SCRIPT} -x {input} -p . -n {wildcards.genome} -t maf"
