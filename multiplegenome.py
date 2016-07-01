@@ -47,6 +47,27 @@ class ConsensusXMFAInputError(InputError):
         self.message = "ERROR: XMFA with more than 2 genomes provided for splitting or merging LCBs. Please align genomes to consensus sequence one by one, creating a new consensus sequence for every added genome."
         
         
+class ConsensusFastaIdxFormatError(InputError):
+    
+    def __init__(self, message):
+        self.message = "ERROR: Format of consensus fasta index file not correct:" + message
+
+        
+class CoordinateOutOfBoundsError(InputError):
+
+    def __init__(coord, source):
+        source = "consensus" if source == "c" else str(source)
+        self.message = "ERROR: Position (" + str(coord) + ") not part of sequence (" + source + "."
+        
+
+class CoordinatesInputError(InputError):
+    
+    def __init__():
+        self.message = ("ERROR: Please provide indices for mapping in correct format: "
+                       "First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
+    
+        
+        
 class Genome:
 
     def __init__(self, filepath, format, entry=-1):
@@ -406,7 +427,7 @@ class Mapper:
                 lcbIdx = sourceBlocks[sourceEnds[idxInEnds]]["lcb"]
                 
                 if lcbIdx > len(alignment.LCBs):
-                    pass # raise exception -> source coord not in alignment
+                    raise CoordinateOutOfBoundsError(coord, source)
     
                 sourceEntry = sourceBlocks[sourceEnds[idxInEnds]]["entry"]
                 lcb = alignment.LCBs[lcbIdx]
@@ -449,7 +470,7 @@ class Mapper:
         
         
     def _getCoordsForEntries(self, entries, dests, posWithinBlock):
-        coord_dict = {}#collections.defaultdict(dict)
+        coord_dict = {}
         
         for e in entries: # faster than looping through entries everytime to get entry of genome x
             if str(e.genomeNr) in dests: 
@@ -480,7 +501,7 @@ class Merger:
             
         lcbs = alignment.getSortedLCBs(newGenomeNr)
        
-       # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence         
+        # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence         
         mergedSplitLCBs = []
         
         for i in range(len(lcbs)):
@@ -859,13 +880,13 @@ class Parser:
             if m is not None:
                 fastaFile = m.group(1)
             else:
-                pass ## raise exception
+                raise ConsensusFastaIdxFormatError("Wrong format of Fasta header line.")
             line = input.readline()
             m = re.match("#XMFA\t(.+)", line)
             if m is not None:
                 xmfaFile = m.group(1)
             else:
-                pass ## raise exception
+                raise ConsensusFastaIdxFormatError("Wrong format of XMFA header line.")
             
             alignment = Alignment(xmfaFile)
             
@@ -904,11 +925,10 @@ class Parser:
                             e.gaps = gapDict
                         lcb.entries.append(e)
                     else:
-                        pass ## raise exception
+                        raise ConsensusFastaIdxFormatError("Lines can only start with 'b' or 's'.")
                     
                 line = input.readline()
                 
-            #consseq = Parser().blockDelimiter.join([ 'x'*len for len in lcbLengthList])
             consensus = Consensus( sequence="", order=0, xmfaFile=xmfaFile, fastaFile=fastaFile)
             consensus.blockStartIndices = lcbEndsList
                 
@@ -922,6 +942,9 @@ class Parser:
             source, dest = header.split("\t")
             dests = dest.split(",")
             coords = [int(line.strip()) for line in input]
+            
+            if source == "" or dests == "" or len(dests) == 0 or len(coords) == 0:
+                raise CoordinatesInputError()
         
         return source, dests, coords
         
@@ -1030,16 +1053,24 @@ def main():
     merger = Merger()
     
     if args.task == "map":
-        sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
-        
-        source, dests, coordinates = parser.parseMappingCoordinates(args.coord_f)
-        
-        dests.append(source)    
-        dests = list(set(dests))
-        
-        coords_dict = mapper.mapCoordinates(sparse_align, sparse_consensus, source, dests, coordinates)
-        
-        writer.writeMappingCoordinates(source, dests, coords_dict, args.output_p, args.output_name)
+        try:
+            sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
+        except ConsensusFastaIdxFormatError as e:
+            print(e.message)
+        else:
+            try:
+                source, dests, coordinates = parser.parseMappingCoordinates(args.coord_f)
+            except CoordinatesInputError as e:
+                print(e.message)
+            else:
+                dests.append(source)    
+                dests = list(set(dests))
+                try:
+                    coords_dict = mapper.mapCoordinates(sparse_align, sparse_consensus, source, dests, coordinates)
+                except CoordinateOutOfBoundsError as e:
+                    print (e.message)
+                else:
+                    writer.writeMappingCoordinates(source, dests, coords_dict, args.output_p, args.output_name)
     else:
         try:
             align = parser.parseXMFA(args.xmfa_f)
@@ -1076,45 +1107,45 @@ def main():
                 
             except ParameterError as e:
                 print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter, e.rangetext, e.value))
-            
+    return(0)
         
 if __name__ == '__main__':
-    try:
+    #try:
                 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file")
-        parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
-        parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
-        parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
-        parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-        parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map", "merge"], required=False)
-        parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file")
+    parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
+    parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
+    parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
+    parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
+    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "map", "merge"], required=False)
+    parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
+    
+    args = parser.parse_args()
+    
+    if args.task == "split" and args.consensus_f is None:
+         parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
+    
+    if args.task == "map": 
+        if args.consensus_f is None:
+            parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"map\"-task (-t/--task).")
+        if args.xmfa_f is not None:
+            print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task)." , file=sys.stderr)
+        if args.coord_f is None:
+            parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
+    else:
+        if args.xmfa_f is None:
+            parser.error("the following arguments are required: -x/--xmfa")
+    
+    main()
+    #    sys.exit(0)
         
-        args = parser.parse_args()
-        
-        if args.task == "split" and args.consensus_f is None:
-             parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
-        
-        if args.task == "map": 
-            if args.consensus_f is None:
-                parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"map\"-task (-t/--task).")
-            if args.xmfa_f is not None:
-                print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task)." , file=sys.stderr)
-            if args.coord_f is None:
-                parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
-        else:
-            if args.xmfa_f is None:
-                parser.error("the following arguments are required: -x/--xmfa")
-        
-        main()
-        sys.exit(0)
-        
-    except KeyboardInterrupt as e: # Ctrl-C
-        raise e
-    except SystemExit as e: # sys.exit()
-        raise e
-    except Exception as e:
-        print('ERROR, UNEXPECTED EXCEPTION')
-        print(str(e))
-        traceback.print_exc()
-        os._exit(1)
+  #  except KeyboardInterrupt as e: # Ctrl-C
+  #      raise e
+  #  except SystemExit as e: # sys.exit()
+  #      raise e
+  #  except Exception as e:
+  #      print('ERROR, UNEXPECTED EXCEPTION')
+  #      print(str(e))
+  #      traceback.print_exc()
+  #      os._exit(1)
