@@ -1025,7 +1025,7 @@ class Writer:
                     count += 1
                     output.write(self._mafSequenceHeader.format(count))
                     for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
-                        output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, (entry.end - entry.start), entry.strand, genome_lengths[entry.genomeNr], entry.sequence))
+                        output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, ((entry.end - entry.start) + 1), entry.strand, genome_lengths[entry.genomeNr], entry.sequence))
                     
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
