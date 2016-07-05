@@ -28,7 +28,12 @@ class ParameterError(Exception):
 class ConsensusFastaFormatError(FormatError):
     def __init__(self):
         self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
-       
+
+
+class ConsensusFastaError(InputError):
+    def __init__(self):
+        self.message = "ERROR: Consensus fasta contains none or more than one entry. Please rebuild consensus fasta with current script version."
+        
 
 class ConsensusFastaInputError(InputError):
     def __init__(self, character):
@@ -625,7 +630,6 @@ class Resolver:
             else:
                 resolved.addLCB(lcb)
         
-        
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
             recalculated.addGenome(genome, nr)
@@ -862,27 +866,25 @@ class Parser:
     
     
     def parseConsensus(self, filename):
+        try:
+            record = SeqIO.read(open(filename, "fasta"))
+        except ValueError as e:
+            raise ConsensusFastaError()
         
-        with open(filename, "r") as input:
-            line = input.readline()
-            m = re.match("^>[^;]+;(\d+)\|(.*)", line)
-            if m is not None:
-                order = m.group(1)
-                xmfaFile = m.group(2)
-            else:
-                raise ConsensusFastaFormatError()
-            line = input.readline()
-            sequence = ""
-            while line:
-                sequence = sequence + line.strip()
-                line = input.readline()
+        m = re.match("^>[^;]+;(\d+)\|(.*)", record.id)
+        
+        if m is not None:
+            order = m.group(1)
+            xmfaFile = m.group(2)
+        else:
+            raise ConsensusFastaFormatError()
+
+        try:
+            cons = Consensus(str(record.seq), order, xmfaFile, filename)
+        except ParameterError:
+            raise ConsensusFastaFormatError()
             
-            try:
-                cons = Consensus(sequence, order, xmfaFile, filename)
-            except ParameterError:
-                raise ConsensusFastaFormatError()
-                
-            return cons
+        return cons
     
     
     def parseConsensusIndex(self, filename):
