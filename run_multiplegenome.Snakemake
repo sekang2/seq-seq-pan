@@ -2,7 +2,7 @@ import sys
 
 sys.setrecursionlimit(1000000)
 
-SCRIPT="python3.4 /home/jandrasitsc/scripts/multiplegenomealignment_dev/seqio/multiplegenome.py"
+SCRIPT="python3.4 /home/jandrasitsc/scripts/multiplegenomealignment/multiplegenome.py"
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
