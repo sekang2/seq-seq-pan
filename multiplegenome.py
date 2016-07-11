@@ -11,6 +11,8 @@ import copy
 
 from Bio import pairwise2
 from Bio.Seq import Seq
+from Bio.SeqRecord import SeqRecord
+from Bio import SeqIO
 
 class FormatError(Exception):
     pass
@@ -291,15 +293,16 @@ class Consensus:
         self.sequence = alignment.getConsensus(order)
         
         
-    def getFasta(self, name, delimiter=True):
+    def getFastaHeader(self, name):
         header = name + ";" + str(self.order) + "|" + self.xmfaFile
-        
-        seq = self.sequence
-        if not delimiter:
-            seq = seq.replace(Parser().blockDelimiter, '')
-        
-        return (">"+header+"\n"+"\n".join(re.findall(".{1,80}", seq))+"\n")   
+        return(header)
 
+        
+    def getUndelimitedSequence(self):
+        seq = self.sequence
+        seq = seq.replace(Parser().blockDelimiter, '')
+        return(seq)
+        
         
     def _getDelimiterPositions(self):
         delimiter = Parser().blockDelimiter
@@ -867,11 +870,11 @@ class Parser:
     
     def parseConsensus(self, filename):
         try:
-            record = SeqIO.read(open(filename, "fasta"))
+            record = SeqIO.read(open(filename), "fasta")
         except ValueError as e:
             raise ConsensusFastaError()
         
-        m = re.match("^>[^;]+;(\d+)\|(.*)", record.id)
+        m = re.match("^[^;]+;(\d+)\|(.*)", record.id)
         
         if m is not None:
             order = m.group(1)
@@ -1050,11 +1053,18 @@ class Writer:
             self._writeConsensusIndex(alignment, filename, order)
             consensus.fromAlignment(alignment, order, filename)
             
-            with open(filename, "w") as output:
-                output.write(consensus.getFasta(name, False))
+            header = consensus.getFastaHeader(name)
             
-            with open(filename + ".blockseparated.fasta", "w") as output:
-                output.write(consensus.getFasta(name, True))
+            record = SeqRecord(Seq(consensus.sequence), id=header, description='')
+            
+            with open(filename + ".blockseparated.fasta", "w") as handle:
+                SeqIO.write(record, handle, "fasta")
+            
+            record.seq = Seq(consensus.getUndelimitedSequence())
+            
+            with open(filename, "w") as handle:
+                SeqIO.write(record, handle, "fasta")
+            
 
                 
         def _writeConsensusIndex(self, alignment, fastafile, order=0):
@@ -1094,7 +1104,7 @@ def main():
     realigner = Realigner()
     mapper = Mapper()
     merger = Merger()
-    
+   # pdb.set_trace()
     if args.task == "map":
         try:
             sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
