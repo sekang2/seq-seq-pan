@@ -86,6 +86,17 @@ class Genome:
         self.filepath = os.path.abspath(filepath)
         self.format = format
         self.entry = int(entry)
+        self.chromosomes = None
+        
+    def readChromosomes(self):
+        self.chromosomes = {}
+        start = 1
+        with open(self.filepath, "r") as fasta:
+            for record in SeqIO.parse(fasta, "fasta"):
+                cur_length = len(record.seq)
+                self.chromosomes[int(start)] = {"desc": record.description, "length": cur_length}
+                start += cur_length
+                
                 
 class Alignment:
 
@@ -270,7 +281,35 @@ class SequenceEntry:
         seq = Seq(self.sequence)
         self.sequence = str(seq.reverse_complement())
 
+
         
+    def getPositionWithinEntryWithGaps(self, posWithinBlockWithoutGaps):
+        if posWithinBlockWithoutGaps == 1:
+            return posWithinBlockWithoutGaps 
+            
+        curNrOfNonGaps = 0
+        posWithinBlock = 0
+        lastGapEnd = 0
+    
+        # go through gaps and add up non-gap characters 
+        # stop if wanted position is located before next gap
+        # calculate final position
+        
+        for start, end in sorted(self.gaps.items()):
+            newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
+            if newNrOfNonGaps > posWithinBlockWithoutGaps:
+                break
+            else:
+                posWithinBlock = end
+                curNrOfNonGaps = newNrOfNonGaps
+                
+        
+        posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
+        
+        return posWithinBlock
+        
+
+    
 class Consensus:
     
     def __init__(self, sequence="", order=0, xmfaFile="", fastaFile=""):
@@ -473,13 +512,13 @@ class Mapper:
                     # calculate final position
                     # coordinate is already strand specific
                     
-                    for start, end in sourceEntry.gaps.items():
+                    for start, end in sorted(sourceEntry.gaps.items()):
                         newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
                         if newNrOfNonGaps >= posWithinBlockWithoutGaps:
                             break
                         else:
                             posWithinBlock = end
-                            curNrOfNonGaps = newNrONonGaps
+                            curNrOfNonGaps = newNrOfNonGaps
                             
                     posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
                     coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
@@ -964,6 +1003,70 @@ class Parser:
                 raise CoordinatesInputError()
         
         return source, dests, coords
+
+
+
+class Splitter:
+
+    def __init__(self, alignment):
+        self.alignment = alignment
+        for nr, genome in alignment.genomes.items():
+            genome.readChromosomes()
+
+            
+    def splitByChromosomes(self, lcb):
+        
+        split_coords = []
+        
+        for entry in lcb.entries:
+            chromosomeStarts = self.getChromosomesForEntry(entry)
+            starts = chromosomeStarts
+            starts[0] = entry.start
+            split_coords.extend([entry.getPositionWithinEntryWithGaps((chrstart - entry.start) + 1) for chrstart in chromosomeStarts])
+        
+        split_coords = sorted(list(set(split_coords)))
+        
+        
+        if len(split_coords) > 1:
+            print("Splitting LCB by chromosomes: " + str(lcb.number) + " ")
+            print(split_coords)
+            print("\n")
+            split_coords = split_coords + [lcb.length]
+            split_coords = [c - 1 for c in split_coords]
+            
+            # create new lcbs with split coords and return them
+            lcbs = [LCB() for _ in range(len(split_coords)-1)]
+            entries = lcb.entries
+            cur_starts = [entry.start for entry in entries]
+
+            for c_idx in range(1,len(split_coords)):
+                for e_idx in range(len(entries)):
+                    
+                    entry = lcb.entries[e_idx]
+                    start = cur_starts[e_idx]
+                    
+                    seq = entry.sequence[split_coords[c_idx - 1]:split_coords[c_idx]]
+                    
+                    non_gaps = len(seq) - seq.count("-")
+                    
+                    if non_gaps > 0:
+                        cur_starts[e_idx] = start + non_gaps
+                        end = cur_starts[e_idx] - 1
+                        newEntry = SequenceEntry(entry.genomeNr, start, end, entry.strand, seq)
+                        lcbs[c_idx - 1].addEntries(newEntry)
+            return lcbs
+        else:
+            return [lcb] 
+
+            
+    def getChromosomesForEntry(self, entry):
+        genome = self.alignment.genomes[entry.genomeNr]
+        chrstarts = sorted(genome.chromosomes.keys())
+        idx_1 = bisect.bisect_right(chrstarts, entry.start)
+        idx_1 -= 1
+        idx_2 = bisect.bisect_right(chrstarts, entry.end)
+        
+        return chrstarts[idx_1:idx_2]
         
         
 class Writer:
@@ -1010,27 +1113,36 @@ class Writer:
         
         
         def writeMAF(self, alignment, path, name, order=0):
-            
+            #pdb.set_trace()
             with open(path+"/"+name+".maf", "w") as output:
                 output.write(self._mafFormatString)
                 
-                genome_names = {}
-                for nr, genome in alignment.genomes.items():
-                    genome_names[nr] = os.path.splitext(os.path.basename(genome.filepath))[0]
-                
-                genome_lengths = {}
                 sortedLCBs = alignment.getSortedLCBs(order)
                 
+                splitter = Splitter(alignment)
+                splittedLCBs = []
                 for lcb in sortedLCBs:
-                    for entry in lcb.entries:
-                        genome_lengths[entry.genomeNr] = genome_lengths.get(entry.genomeNr, 0) + (len(entry.sequence) - entry.sequence.count('-'))
+                    splittedLCBs.extend(splitter.splitByChromosomes(lcb))
                 
                 count = 0
-                for lcb in sortedLCBs:
+                for lcb in splittedLCBs:
+                    
                     count += 1
                     output.write(self._mafSequenceHeader.format(count))
+                    
                     for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
-                        output.write(self._mafEntryHeader.format(genome_names[entry.genomeNr], entry.start, ((entry.end - entry.start) + 1), entry.strand, genome_lengths[entry.genomeNr], entry.sequence))
+                        genome = alignment.genomes[entry.genomeNr]
+                        chrstarts = splitter.getChromosomesForEntry(entry)
+                        
+                        if len(chrstarts) != 1:
+                            raise Exception("Splitting by chromosomes went wrong.")
+                        
+                        chrstart = chrstarts[0]
+                        chr = genome.chromosomes[chrstart]
+                        
+                        start = entry.start - chrstart + 1
+                        
+                        output.write(self._mafEntryHeader.format(chr["desc"], start, ((entry.end - entry.start)+1), entry.strand, chr["length"], entry.sequence))
                     
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
