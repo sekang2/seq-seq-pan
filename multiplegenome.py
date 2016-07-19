@@ -27,6 +27,7 @@ class ParameterError(Exception):
         self.value = value
         self.rangetext = rangetext
     
+    
 class ConsensusFastaFormatError(FormatError):
     def __init__(self):
         self.message = "ERROR: Wrong format of consensus fasta header. Please rebuild consensus fasta with current script version."
@@ -105,8 +106,10 @@ class Alignment:
         self.LCBs = []
         self.genomes = {}
         
+        
     def addGenome(self, genome, number):
         self.genomes[int(number)] = genome
+        
         
     def addLCBentries(self, entries):
         number = len(self.LCBs) + 1
@@ -114,18 +117,28 @@ class Alignment:
         lcb.addEntries(entries)
         self.LCBs.append(lcb)
         
+        
     def addLCB(self, lcb):
         number = len(self.LCBs) + 1
         lcb.number = number
         self.LCBs.append(lcb)
         
+        
     def getConsensus(self, order=0):
         sortedLCBs = self.getSortedLCBs(order)    
         delim = Parser().blockDelimiter
         
-        consseq = delim.join( lcb.consensusSequence() for lcb in sortedLCBs )
+        consensusseqs = [lcb.consensusSequence() for lcb in sortedLCBs]
         
-        return consseq
+        #store beginning of each block by calculating with lengths of joined LCBs
+        lcblengths = [lcb.length for lcb in sortedLCBs]
+        lcblengths = [0] + lcblengths
+        for i in range(1,len(lcblengths)):
+            lcblengths[i] = lcblengths[i-1] + lcblengths[i] + len(delim)
+        
+        consseq = delim.join( consensusseqs )
+        
+        return consseq, lcblengths[:-1]
         
 
     def getSortedLCBs(self, order):
@@ -180,6 +193,7 @@ class LCB:
         self.entries = []
         self.length = 0
         
+        
     def addEntries(self, entries):
         if type(entries) is not list:
             entries = [entries]
@@ -193,6 +207,7 @@ class LCB:
        
         self.length = length
         self.entries.extend(entries)
+        
         
     def getEntry(self, genomeNr):
         entry = None
@@ -232,7 +247,7 @@ class LCB:
             raise ConsensusFastaInputError(e.args[0])
         else:
             try:
-                return self._iupac_dict.get(c, "|")
+                return self._iupac_dict[c]
             except KeyError as e:
                 raise ConsensusFastaInputError(e.args[0])
 
@@ -252,9 +267,11 @@ class SequenceEntry:
         if name == "sequence":
             self._gapDict()
     
+    
     def _gapDict(self):
         self.gaps = {i.start() : i.end() for i in re.finditer('-+', self.sequence)}
 
+        
     def getSubGapList(self, start=0, end=None):
             
         if end is None:
@@ -280,7 +297,6 @@ class SequenceEntry:
         self.strand = ("+" if self.strand == "-" else "-")
         seq = Seq(self.sequence)
         self.sequence = str(seq.reverse_complement())
-
 
         
     def getPositionWithinEntryWithGaps(self, posWithinBlockWithoutGaps):
@@ -308,7 +324,6 @@ class SequenceEntry:
         
         return posWithinBlock
         
-
     
 class Consensus:
     
@@ -317,19 +332,13 @@ class Consensus:
         self.order = int(order)
         self.xmfaFile = os.path.abspath(xmfaFile)
         self.fastaFile = os.path.abspath(fastaFile)
-        
-    
-    def __setattr__(self, name, value):
-        self.__dict__[name] = value
-        if name == "sequence":
-            self._getDelimiterPositions()
-        
+     
     
     def fromAlignment(self, alignment, order, fastaFile):
         self.order = int(order)
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
-        self.sequence = alignment.getConsensus(order)
+        self.sequence, self.blockStartIndices = alignment.getConsensus(order)
         
         
     def getFastaHeader(self, name):
@@ -342,12 +351,6 @@ class Consensus:
         seq = seq.replace(Parser().blockDelimiter, '')
         return(seq)
         
-        
-    def _getDelimiterPositions(self):
-        delimiter = Parser().blockDelimiter
-        self.blockStartIndices = [ (i.end()) for i in re.finditer(delimiter, self.sequence)] # store end coordinate of delimiter
-        self.blockStartIndices[:0] = [0]
-
         
 class Realigner:
     
@@ -639,19 +642,23 @@ class Merger:
         return merged
         
         
-class Resolver:    
+class Resolver:
+    
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
     
-        consensusGenomeNr = ( 1 if alignment.genomes[1].filepath == consensus.fastaFile else 2)
+        consensusGenomeNr = ( 1 if alignment.genomes[1].filepath == consensus.fastaFile else 2) # add exception if neither is the same!!
         newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
     
         resolved = Alignment(alignment.xmfaFile)
         for nr, genome in alignment.genomes.items():
             resolved.addGenome(genome, nr)
         
+        pdb.set_trace()
+        
         for lcb in alignment.LCBs:
+            
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             if consensusEntry is not None:
                 # consensus sequence entry of LCB should be on forward strand for easier calculation of coordinates
@@ -661,14 +668,9 @@ class Resolver:
                     consensusEntry = lcb.getEntry(consensusGenomeNr)
             
                 # check if there are delimiters in the sequence 
-                trim =  (len(consensusEntry.sequence) > len(consensusEntry.sequence.strip('N')))
-                split =  re.search("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", consensusEntry.sequence.strip('N')) is not None 
-                if split or trim:
-                    splitLcbs = self._splitLCB(lcb, consensusGenomeNr, newGenomeNr) # split LCB                    
-                    for slcb in splitLcbs:
-                        resolved.addLCB(slcb)
-                else:
-                    resolved.addLCB(lcb)
+                splitLcbs = self._splitLCB(lcb, consensusGenomeNr, newGenomeNr, consensus) # split LCB                    
+                for slcb in splitLcbs:
+                    resolved.addLCB(slcb)
             else:
                 resolved.addLCB(lcb)
         
@@ -697,60 +699,73 @@ class Resolver:
                     except LcbInputError as e:
                         e.message = e.message + " (Error occured in recalculating coordinates step.)"
                         raise e
+                    except IndexError as e:
+                        print(lcb.number)
+                        raise e
                 
                 recalculated.addLCB(recalculatedLCB)
             
             return recalculated
         
         
-    def _splitLCB(self, lcb, consensusGenomeNr, newGenomeNr):
+    def _splitLCB(self, lcb, consensusGenomeNr, newGenomeNr, consensus):
         splitLCBs = []
         delimiterPositions = []
-        startPositions = [0]
-        
+             
         consensusEntry = lcb.getEntry(consensusGenomeNr)
         
-        middleStart = 0
-        middleEnd = lcb.length
+        ## check whether consensusEntry overlaps delimiter position      
         
-        # check if there is a delimiter sequence at the start
-        # and search from end of match afterwards
-        m = re.search("^N[N-]*", consensusEntry.sequence)
-        if m is not None:
-            startPositions.append(m.end(0))
-            middleStart = m.end(0)
+        # check if entry contains delimiter sequence less than normal length at beginning
+        intervals = [idx - 1000 for idx in sorted(consensus.blockStartIndices)[1:] if 0 <= (idx - consensusEntry.start) < len(Parser().blockDelimiter)]
         
-        # check if there is a delimiter sequence at the end
-        # and search until start of match afterwards
-        m = re.search("[N-]*N$", consensusEntry.sequence[middleStart:])
-        if m is not None:
-            delimiterPositions.append([m.start(0)])
-            middleEnd = m.start(0) + middleStart
+        # check for all overlaps
+        intervals.extend([idx - 1000 for idx in sorted(consensus.blockStartIndices)[1:] if consensusEntry.start < (idx - 1000) <  consensusEntry.end])
+        
+        for startInterval in intervals:
+            startWithinBlock = startInterval - consensusEntry.start + 1
+            
+            # in case of delimiter sequencing at beginning of entry, index will be negative but should be 0
+            startWithinBlock = (consensusEntry.getPositionWithinEntryWithGaps(startWithinBlock) if startWithinBlock > 0 else 0)
+                
+           ## check if m is NOne ---> serious Error! Exception
+            # search for delimiter sequence starting at interval position: N with gaps inbetween with maximum length of 1000
+            m = re.search("(N-*){,"+str(len(Parser().blockDelimiter)-1)+"}N", consensusEntry.sequence[startWithinBlock:])
+
+            # store positions to split
+            delimiterPositions.append(startWithinBlock + m.start(0))
+            delimiterPositions.append(startWithinBlock + m.end(0))
         
         
-        # N stretches in the middle must have delimiter length and be between start and end delimiter sequence
-        delimiterPositions.extend([ (m.start(0), m.end(0)) 
-                                    for m in re.finditer("N[N-]{"+str(len(Parser().blockDelimiter)-2)+",}N", 
-                                                         consensusEntry.sequence[middleStart:middleEnd]
-                                                        )
-                                  ] ) 
-        
-        delimiterPositions = sorted(list(itertools.chain.from_iterable(delimiterPositions)))
-        delimiterPositions[:] = (lambda middleStart=middleStart: [x + middleStart for x in delimiterPositions])()
-        
-        if len(delimiterPositions) == 0 and len(startPositions) < 2: # no entries with delimiter sequence in LCB
+        if len(delimiterPositions) == 0: # no entries with delimiter sequence in LCB
             return [lcb]
         
-        indices = startPositions + delimiterPositions +[lcb.length]
+        
+        indices = delimiterPositions
+        
+        # store whether even or uneven elements are delimiters
+        evenIsDelimiter = True
+        if delimiterPositions[0] > 0:
+            indices = [0] + indices
+            evenIsDelimiter = False
+        
+        if delimiterPositions[-1] < lcb.length:
+            indices = indices + [lcb.length]
         
         for i in range(len(indices)-1):
-            entries = list(filter(None, (lambda i=i, lcb=lcb, self=self, indices=indices: 
-                                            [ self._getNewEntry(e, indices[i], indices[i+1]) 
-                                              for e in lcb.entries
-                                            ]
-                                        )()
-                                  ) # add all entries that are not None
-                          )
+        
+            newEntry = lcb.getEntry(newGenomeNr)
+            if newEntry is None:
+                entries = []
+            else:
+                entries = [self._getNewEntry(newEntry, indices[i], indices[i+1])]
+            
+            # check if element is non-delimiter element
+            if (i % 2 == 0 and not evenIsDelimiter) or ( i % 2 != 0 and evenIsDelimiter):
+                entries.append(self._getNewEntry(consensusEntry, indices[i], indices[i+1]))
+            
+            entries = list(filter(None, entries)) # add all entries that are not None)
+            
             if len(entries) > 0:
                 if len(entries) == 1: # only one entry - sequence of second genome not present in current LCB --> remove all gaps
                     entries[0].sequence = entries[0].sequence.replace("-", "") 
@@ -761,15 +776,13 @@ class Resolver:
                     raise LcbInputError(e.message + " (Error occured in splitting step.)")
                 else:    
                     splitLCBs.append(slcb)
-        
-        
                 
         return splitLCBs
         
         
     def _getNewEntry(self, entry, splitstart, splitend):
         seq = entry.sequence[splitstart:splitend]
-        if seq == "" or re.search("[^N-]", seq) is None:
+        if seq == "" or re.search("[^-]", seq) is None:
             return None
         splitlen = splitend - splitstart
         
@@ -797,7 +810,7 @@ class Resolver:
         orgLCB = orgLCBlist[idx]
         
         # calculate start and end of sequence within current consensus block
-        startWithinBlock = consensusEntry.start - consensus.blockStartIndices[idx] - 1
+        startWithinBlock = consensusEntry.start - consensus.blockStartIndices[idx] - 1 
         endWithinBlock = consensusEntry.end - consensus.blockStartIndices[idx] - 1
         
         # count gaps in consensus entry
@@ -833,7 +846,7 @@ class Resolver:
                 sequence = self._insertGap(sequence, gstart, gend-gstart)
             
             
-            if sequence != "" and re.search("[^N-]", sequence) is not None:
+            if sequence != "" and re.search("[^-]", sequence) is not None:
                 newEntry.sequence = sequence
                 orgEntries.append(newEntry)
         
@@ -854,6 +867,7 @@ class Parser:
         with open(filename, "r") as xmfa:
             line = xmfa.readline()
             seq = ""
+            seqparts = []
             start = 0
             end = 0
             seqNr = 0
@@ -881,9 +895,11 @@ class Parser:
                         continue
                 
                 elif line.startswith(">"): # a sequence start was encountered
-                    if len(seq) > 0: # save previous sequence
+                    if len(seqparts) > 0: # save previous sequence
+                        seq = "".join(seqparts)
                         ses.append(SequenceEntry(seqNr, start, end, strand, seq))
-                        seq = ""
+                        
+                        seqparts = []
                     m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
                     if m is not None:
                         seqNr = m.group(1)
@@ -893,14 +909,15 @@ class Parser:
                     else:
                         raise XMFAHeaderFormatError(line.strip())
                 elif line.startswith("="):
+                    seq = "".join(seqparts)
                     ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                     
                     alignment.addLCBentries(ses)
                     
-                    seq = ""
+                    seqparts = []
                     ses = []
                 else:
-                    seq += line
+                    seqparts.append(line)
                     
                 line = xmfa.readline()
                     
@@ -929,8 +946,27 @@ class Parser:
         return cons
     
     
+    def parseBlockSeparatedConsensus(self, filename):
+        consensus = self.parseConsensus(filename+".blockseparated.fasta")
+        consensus.blockStartIndices = self._parseConsensusSeparator(filename)
+        
+        return consensus
+    
+    
+    def _parseConsensusSeparator(self, filename):
+        with open(filename+".blockseparated.idx", "r") as input:
+            line = input.readline()
+            line = input.readline()
+            line = input.readline()
+
+            blockStartIndices = [int(idx) for idx in line.strip().split(";")]
+            
+        
+        return blockStartIndices
+    
+    
     def parseConsensusIndex(self, filename):
-        with open(filename, "r") as input:
+        with open(filename+".idx", "r") as input:
             line = input.readline()
             m = re.match("#Fasta\t(.+)", line)
             if m is not None:
@@ -1113,7 +1149,7 @@ class Writer:
         
         
         def writeMAF(self, alignment, path, name, order=0):
-            #pdb.set_trace()
+            
             with open(path+"/"+name+".maf", "w") as output:
                 output.write(self._mafFormatString)
                 
@@ -1162,9 +1198,10 @@ class Writer:
             filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
             
             consensus = Consensus()
-            self._writeConsensusIndex(alignment, filename, order)
             consensus.fromAlignment(alignment, order, filename)
             
+            self._writeConsensusIndex(alignment, filename, order)
+            self._writeConsensusSeparator(consensus, alignment, filename, order)
             header = consensus.getFastaHeader(name)
             
             record = SeqRecord(Seq(consensus.sequence), id=header, description='')
@@ -1206,7 +1243,16 @@ class Writer:
                                               ';'.join(['-'.join( [str(start+1), str(end)]) for start, end in sorted(entry.gaps.items()) ])
                                             )
                                     )
-                                            
+        
+        
+        def _writeConsensusSeparator(self, consensus, alignment, fastafile, order):
+            with open(fastafile+".blockseparated.idx", "w") as output:
+                output.write(self._consensusIndexFasta.format(fastafile))
+                output.write(self._consensusIndexXmfa.format(alignment.xmfaFile))
+                output.write(';'.join([str(idx) for idx in consensus.blockStartIndices]))
+                
+
+        
 def main():
     global args
     
@@ -1219,7 +1265,7 @@ def main():
    # pdb.set_trace()
     if args.task == "map":
         try:
-            sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f+".idx")
+            sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f)
         except ConsensusFastaIdxFormatError as e:
             print(e.message)
         else:
@@ -1238,6 +1284,7 @@ def main():
                     writer.writeMappingCoordinates(source, dests, coords_dict, args.output_p, args.output_name)
     else:
         try:
+            #pdb.set_trace()
             align = parser.parseXMFA(args.xmfa_f)
                 
         except (XMFAHeaderFormatError, LcbInputError) as e:
@@ -1253,11 +1300,12 @@ def main():
                     writer.writeXMFA(merged, args.output_p, args.output_name + "_merge", args.order)
                     
                 if args.task == "consensus":
+                    
                     writer.writeConsensus(align, args.output_p, args.output_name, args.order)
                 elif args.task == "split":
                     
                     try:
-                        consensus = parser.parseConsensus(args.consensus_f)
+                        consensus = parser.parseBlockSeparatedConsensus(args.consensus_f)
                         org_align = parser.parseXMFA(consensus.xmfaFile)
                         splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
                     except (XMFAHeaderFormatError, LcbInputError) as e:
