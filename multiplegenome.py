@@ -655,8 +655,6 @@ class Resolver:
         for nr, genome in alignment.genomes.items():
             resolved.addGenome(genome, nr)
         
-        pdb.set_trace()
-        
         for lcb in alignment.LCBs:
             
             consensusEntry = lcb.getEntry(consensusGenomeNr)
@@ -1262,7 +1260,7 @@ def main():
     realigner = Realigner()
     mapper = Mapper()
     merger = Merger()
-   # pdb.set_trace()
+   
     if args.task == "map":
         try:
             sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f)
@@ -1284,7 +1282,7 @@ def main():
                     writer.writeMappingCoordinates(source, dests, coords_dict, args.output_p, args.output_name)
     else:
         try:
-            #pdb.set_trace()
+            
             align = parser.parseXMFA(args.xmfa_f)
                 
         except (XMFAHeaderFormatError, LcbInputError) as e:
