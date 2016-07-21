@@ -29,9 +29,9 @@ def consensus_file(wildcards):
     newnr = prev_genome(wildcards)
     
     if newnr == "0":
-        consgen = GENOME_DICT[newnr]["file"]
+        consgen = [GENOME_DICT[newnr]["file"]]
     else:
-        consgen = "add"+newnr+"_consensus.fasta.blockseparated.fasta"
+        consgen = ["add"+newnr+"_consensus.fasta.blockseparated.fasta", "add"+newnr+"_consensus.fasta"]
         
     return consgen
 
@@ -93,7 +93,7 @@ rule split:
             consensus=consensus_file
     output: temp("add{genome,\d+}_split.xmfa")
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t split -c {input.consensus}"
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t split -c {input.consensus[1]}"
         
         
 rule realign:
@@ -111,17 +111,17 @@ rule merge:
         
         
 rule align:
-    input:  consensus_file, 
-            mauve_input
+    input:  consensus=consensus_file, 
+            new=mauve_input
     output: temp("add{genome, \d+}.xmfa"), 
             temp("add{genome, \d+}.xmfa.bbcols"), 
             temp("add{genome, \d+}.xmfa.backbone")
     log: "add{genome}.progressiveMauve.log.txt"
     shell:
         '''
-        progressiveMauve {input[0]} {input[1]} --output={output[0]} --max-gapped-aligner-length=900 > {log} 
-        rm {input[0]}.sslist
-        rm {input[1]}.sslist
+        progressiveMauve {input.consensus[0]} {input.new} --output={output[0]} --max-gapped-aligner-length=900 > {log} 
+        rm {input.consensus[0]}.sslist
+        rm {input.new}.sslist
         '''
         
         
