@@ -68,7 +68,7 @@ class ConsensusFastaIdxFormatError(InputError):
         
 class CoordinateOutOfBoundsError(InputError):
 
-    def __init__(coord, source):
+    def __init__(self, coord, source):
         source = "consensus" if source == "c" else str(source)
         self.message = "ERROR: Position (" + str(coord) + ") not part of sequence (" + source + "."
         
@@ -79,7 +79,18 @@ class CoordinatesInputError(InputError):
         self.message = ("ERROR: Please provide indices for mapping in correct format: "
                        "First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
     
-        
+
+class ConsensusGenomeNumberError(InputError):
+    
+    def __init__():
+        self.message = ("ERROR: Could not assign XMFA sequence number to consensus file. Was consensus sequence used for aligning this XMFA file?")
+
+
+class ConsensusCorruptError(InputError):
+    
+    def __init__(self, pos):
+        self.message = ("ERROR: Could not find delimiter sequence at position " + str(pos) + ". Your consensus sequence is incorrect.")
+    
         
 class Genome:
 
@@ -628,8 +639,14 @@ class Resolver:
     def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
-    
-        consensusGenomeNr = ( 1 if alignment.genomes[1].filepath == consensus.fastaFile else 2) # add exception if neither is the same!!
+
+        if alignment.genomes[1].filepath == consensus.fastaFile:
+            consensusGenomeNr = 1
+        elif alignment.genomes[2].filepath == consensus.fastaFile:
+            consensusGenomeNr = 2
+        else:
+            raise ConsensusGenomeNumberError()
+        
         newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
     
         resolved = Alignment(alignment.xmfaFile)
@@ -707,10 +724,11 @@ class Resolver:
             # in case of delimiter sequencing at beginning of entry, index will be negative but should be 0
             startWithinBlock = (consensusEntry.getPositionWithinEntryWithGaps(startWithinBlock) if startWithinBlock > 0 else 0)
                 
-           ## check if m is NOne ---> serious Error! Exception
             # search for delimiter sequence starting at interval position: N with gaps inbetween with maximum length of 1000
             m = re.search("(N-*){,"+str(len(Parser().blockDelimiter)-1)+"}N", consensusEntry.sequence[startWithinBlock:])
-
+            if m is None:
+                raise ConsensusCorruptError(startWithinBlock+consensusEntry.start)
+            
             # store positions to split
             delimiterPositions.append(startWithinBlock + m.start(0))
             delimiterPositions.append(startWithinBlock + m.end(0))
@@ -1288,7 +1306,7 @@ def main():
                         splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
                     except (XMFAHeaderFormatError, LcbInputError) as e:
                         print(e.message + "(" + consensus.xmfaFile + ")")
-                    except (ConsensusFastaFormatError, ConsensusXMFAInputError) as e:
+                    except (ConsensusFastaFormatError, ConsensusXMFAInputError, ConsensusGenomeNumberError) as e:
                         print(e.message)
                     else:
                         writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
@@ -1328,6 +1346,6 @@ if __name__ == '__main__':
             parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
     else:
         if args.xmfa_f is None:
-            parser.error("the following arguments are required: -x/--xmfa")
+            parser.error("Please provide the following arguments: -x/--xmfa")
     
     main()
