@@ -130,7 +130,7 @@ class Alignment:
         
         consensusseqs = [lcb.consensusSequence() for lcb in sortedLCBs]
         
-        #store beginning of each block by calculating with lengths of joined LCBs
+        #store beginning of each block calculated using lengths of joined LCBs
         lcblengths = [lcb.length for lcb in sortedLCBs]
         lcblengths = [0] + lcblengths
         for i in range(1,len(lcblengths)):
@@ -200,7 +200,7 @@ class LCB:
         
         length = len(entries[0].sequence)
         
-        # check if new entries have same length as already added 
+        # check if new entries have same length as already added ones 
         # and whether all new entries have the same length
         if (self.length > 0 and length != self.length) or (not all(len(e.sequence) == length for e in entries)):
             raise LcbInputError(self.number)
@@ -235,12 +235,12 @@ class LCB:
         
     def _IUPAC(self, bases):
         # steps:
-        # convert character into unambiguous code (A,C,G,T)
+        # convert characters into unambiguous code (A,C,G,T)
         # remove duplicates from list
         # sort list
         # remove gap character
         # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
-        # return character (or "|" if something goes wrong)
+        # return character 
         try:
             c = ''.join(sorted(list(set(''.join([ self._iupac_dict[x.upper()] for x in bases]))))).replace("-", "")
         except KeyError as e:
@@ -319,7 +319,6 @@ class SequenceEntry:
                 posWithinBlock = end
                 curNrOfNonGaps = newNrOfNonGaps
                 
-        
         posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
         
         return posWithinBlock
@@ -353,7 +352,7 @@ class Consensus:
         
         
 class Realigner:
-    
+    ## local realignment around overlapping or consecutive gaps in two sequences
     def realign(self, alignment):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
@@ -423,8 +422,7 @@ class Realigner:
                 seqEnd = interval[minIndex][1] -index_offset + minSeqLength
                 
                 alignments = pairwise2.align.globalxx(seqOne[seqStart:seqEnd].replace("-", "") , seqTwo[seqStart:seqEnd].replace("-", ""))
-                
-                
+                                
                 maxscore = max( [x[2] for x in alignments] )
                 alignments = (lambda maxscore=maxscore: [item for item in alignments if item[2] == maxscore])()
                 
@@ -436,7 +434,6 @@ class Realigner:
                 
                 index_offset += ((seqEnd - seqStart) - minlength)
 
-        
         return (seqOne, seqTwo)
         
     
@@ -506,24 +503,8 @@ class Mapper:
                 # check if dests other than consensus are needed
                 if len(dests) > 0:
                 
-                    curNrOfNonGaps = 0
-                    posWithinBlock = 0
-                    lastGapEnd = 0
-                
-                    # go through gaps and add up non-gap characters 
-                    # stop if wanted position is located before next gap
-                    # calculate final position
-                    # coordinate is already strand specific
+                    posWithinBlock = sourceEntry.getPositionWithinEntryWithGaps(posWithinBlockWithoutGaps)
                     
-                    for start, end in sorted(sourceEntry.gaps.items()):
-                        newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
-                        if newNrOfNonGaps >= posWithinBlockWithoutGaps:
-                            break
-                        else:
-                            posWithinBlock = end
-                            curNrOfNonGaps = newNrOfNonGaps
-                            
-                    posWithinBlock += (posWithinBlockWithoutGaps - curNrOfNonGaps)
                     coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
             
 
@@ -715,7 +696,7 @@ class Resolver:
         ## check whether consensusEntry overlaps delimiter position      
         
         # check if entry contains delimiter sequence less than normal length at beginning
-        intervals = [idx - 1000 for idx in sorted(consensus.blockStartIndices)[1:] if 0 <= (idx - consensusEntry.start) < len(Parser().blockDelimiter)]
+        intervals = [idx - 1000 for idx in sorted(consensus.blockStartIndices)[1:] if 0 <= (idx - consensusEntry.start) <= len(Parser().blockDelimiter)]
         
         # check for all overlaps
         intervals.extend([idx - 1000 for idx in sorted(consensus.blockStartIndices)[1:] if consensusEntry.start < (idx - 1000) <  consensusEntry.end])
@@ -1212,8 +1193,7 @@ class Writer:
             with open(filename, "w") as handle:
                 SeqIO.write(record, handle, "fasta")
             
-
-                
+        
         def _writeConsensusIndex(self, alignment, fastafile, order=0):
             with open(fastafile+".idx", "w") as output:
                 output.write(self._consensusIndexFasta.format(fastafile))
@@ -1324,8 +1304,7 @@ def main():
     return(0)
         
 if __name__ == '__main__':
-    #try:
-                
+               
     parser = argparse.ArgumentParser()
     parser.add_argument("-x", "--xmfa", dest="xmfa_f", help="XMFA input file")
     parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
@@ -1352,14 +1331,3 @@ if __name__ == '__main__':
             parser.error("the following arguments are required: -x/--xmfa")
     
     main()
-    #    sys.exit(0)
-        
-  #  except KeyboardInterrupt as e: # Ctrl-C
-  #      raise e
-  #  except SystemExit as e: # sys.exit()
-  #      raise e
-  #  except Exception as e:
-  #      print('ERROR, UNEXPECTED EXCEPTION')
-  #      print(str(e))
-  #      traceback.print_exc()
-  #      os._exit(1)
