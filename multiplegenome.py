@@ -122,7 +122,7 @@ class Alignment:
         self.genomes[int(number)] = genome
         
         
-    def addLCBentries(self, entries):
+    def addLCBEntries(self, entries):
         number = len(self.LCBs) + 1
         lcb = LCB(number)
         lcb.addEntries(entries)
@@ -931,7 +931,7 @@ class Parser:
                     seq = "".join(seqparts)
                     ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                     
-                    alignment.addLCBentries(ses)
+                    alignment.addLCBEntries(ses)
                     
                     seqparts = []
                     ses = []
@@ -1122,6 +1122,27 @@ class Splitter:
         idx_2 = bisect.bisect_right(chrstarts, entry.end)
         
         return chrstarts[idx_1:idx_2]
+
+
+
+class Separator:
+    
+    def separateLCBs(self, alignment, length):
+        separated = Alignment(alignment.xmfaFile)
+        for nr, genome in alignment.genomes.items():
+            separated.addGenome(genome, nr)
+        
+        for lcb in alignment.LCBs:
+            if lcb.length <= length:
+                for entry in lcb.entries:
+                    newEntry = SequenceEntry(entry.genomeNr, entry.start, entry.end, entry.strand, entry.sequence)
+                    separated.addLCBEntries(newEntry)
+            else:
+                separated.addLCB(lcb)
+                
+        return separated
+
+
         
         
 class Writer:
@@ -1288,6 +1309,7 @@ def main():
     realigner = Realigner()
     mapper = Mapper()
     merger = Merger()
+    separator = Separator()
    
     if args.task == "map":
         try:
@@ -1328,6 +1350,16 @@ def main():
                 if args.task == "consensus":
                     
                     writer.writeConsensus(align, args.output_p, args.output_name, args.order)
+                    
+                elif args.task == "separate":
+                    if args.lcb_length > 0:
+                        separated = separator.separateLCBs(align, args.lcb_length)
+                    else:
+                        print("Separating LCBs: Nothing do be done -> length is smaller than 1!")
+                        separated = align
+                        
+                    writer.writeXMFA(separated, args.output_p, args.output_name + "_separated", args.order)
+                    
                 elif args.task == "split":
                     
                     try:
@@ -1360,8 +1392,9 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
     parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge|maf) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "maf", "map", "merge"], required=False)
+    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge|separate|maf) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "maf", "map", "merge", "separate"], required=False)
     parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
+    parser.add_argument("-l", "--length", dest="lcb_length", type=int, help="Shorter LCBs will be separated to form genome specific entries.", required=False, default=0)
     
     args = parser.parse_args()
     
