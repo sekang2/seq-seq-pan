@@ -2,7 +2,7 @@ import sys
 
 sys.setrecursionlimit(1000000)
 
-SCRIPT="python3.4 /home/jandrasitsc/scripts/multiplegenomealignment/multiplegenome.py"
+SCRIPT="python3.4 /home/jandrasitsc/scripts/dev/multiplegenomealignment/multiplegenome.py"
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
@@ -119,9 +119,24 @@ rule align:
             temp("add{genome, \d+}.xmfa.backbone")
     shell:
         '''
-        progressiveMauve {input.consensus[0]} {input.new} --output={output[0]} --max-gapped-aligner-length=900 > /dev/null
-        rm {input.consensus[0]}.sslist
-        rm {input.new}.sslist
+        input=`basename {input.consensus[0]}`
+        input2=`basename {input.new}`
+        
+        input=temp_$input
+        input2=temp_$input2
+        
+        cp {input.consensus[0]} $input
+        cp {input.new} $input2
+        
+        progressiveMauve $input $input2 --output={output[0]} --max-gapped-aligner-length=900 > /dev/null
+        
+        sed -i "s|$input|{input.consensus[0]}|g" {output[0]}
+        sed -i "s|$input2|{input.new}|g" {output[0]}
+        
+        rm $input.sslist
+        rm $input
+        rm $input2.sslist
+        rm $input2
         '''
         
         
