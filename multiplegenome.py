@@ -75,14 +75,14 @@ class CoordinateOutOfBoundsError(InputError):
 
 class CoordinatesInputError(InputError):
     
-    def __init__():
+    def __init__(self):
         self.message = ("ERROR: Please provide indices for mapping in correct format: "
                        "First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line.")
     
 
 class ConsensusGenomeNumberError(InputError):
     
-    def __init__():
+    def __init__(self):
         self.message = ("ERROR: Could not assign XMFA sequence number to consensus file. Was consensus sequence used for aligning this XMFA file?")
 
 
@@ -164,7 +164,29 @@ class Alignment:
             return(sortedLCBs)
         else:
             raise ParameterError("order", order, "between 0 and " + str(len(self.genomes)) + " (number of genomes in XMFA)")
-            
+    
+    def isInvalid(self):
+        for genomenr in self.genomes.keys():
+            ordered = self.getSortedLCBs(genomenr)
+            lastend = 0
+            invalid = False
+            for lcb in ordered:
+                entry = lcb.getEntry(genomenr)
+                if entry is None:
+                    break
+                    
+                invalid = ( entry.start - lastend != 1 )
+                if invalid: 
+                    break
+                    
+                lastend = entry.end
+                
+            if invalid:
+                break
+        return invalid
+                
+                
+    
         
 class LCB:
     
@@ -1120,6 +1142,11 @@ class Writer:
         
         
         def writeXMFA(self, alignment, path, name, order=0):
+            
+            if alignment.isInvalid():
+                print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: XMFA is invalid!\n!!!!!!!!!\n!!!!!!!\n")
+                    
+        
             with open(path+"/"+name+".xmfa", "w") as output:
                 output.write(self._mauveFormatString)
                                
@@ -1146,6 +1173,9 @@ class Writer:
         
         
         def writeMAF(self, alignment, path, name, order=0):
+            
+            if alignment.isInvalid():
+                print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: MAF is invalid!\n!!!!!!!!!\n!!!!!!!\n")
             
             with open(path+"/"+name+".maf", "w") as output:
                 output.write(self._mafFormatString)
@@ -1312,6 +1342,7 @@ def main():
                         writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
                 
                 elif args.task == "xmfa":
+                    
                     writer.writeXMFA(align, args.output_p, args.output_name, args.order)
                 
                 elif args.task == "maf":
