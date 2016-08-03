@@ -1137,7 +1137,8 @@ class Separator:
         for lcb in alignment.LCBs:
             if lcb.length <= length:
                 for entry in lcb.entries:
-                    newEntry = SequenceEntry(entry.genomeNr, entry.start, entry.end, entry.strand, entry.sequence)
+                    seq = entry.sequence.replace("-", "") 
+                    newEntry = SequenceEntry(entry.genomeNr, entry.start, entry.end, entry.strand, seq)
                     separated.addLCBEntries(newEntry)
             else:
                 separated.addLCB(lcb)
