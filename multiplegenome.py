@@ -1290,7 +1290,7 @@ class Writer:
                     for entry in lcb.entries:
                         output.write(self._consensusIndexSequenceLine.format
                                             ( entry.genomeNr, entry.start, entry.end, entry.strand,
-                                              ';'.join(['-'.join( [str(start+1), str(end)]) for start, end in sorted(entry.gaps.items()) ])
+                                              ';'.join(['-'.join( [str(start), str(end)]) for start, end in sorted(entry.gaps.items()) ])
                                             )
                                     )
         
