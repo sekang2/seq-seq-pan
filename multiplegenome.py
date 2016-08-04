@@ -1162,7 +1162,7 @@ class Writer:
         
         _mafFormatString = "##maf version=1\n"
         _mafSequenceHeader = "\na label={0}\n"
-        _mafEntryHeader = "s {0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
+        _mafEntryHeader = "s\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
         
         
         def writeXMFA(self, alignment, path, name, order=0):
@@ -1229,7 +1229,7 @@ class Writer:
                         
                         start = entry.start - chrstart
                         
-                        output.write(self._mafEntryHeader.format(chr["desc"], start, ((entry.end - entry.start)+1), entry.strand, chr["length"], entry.sequence))
+                        output.write(self._mafEntryHeader.format(chr["desc"].replace(" ", "_"), start, ((entry.end - entry.start)+1), entry.strand, chr["length"], entry.sequence))
                     
         
         def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
