@@ -749,7 +749,7 @@ class Resolver:
             startWithinBlock = (consensusEntry.getPositionWithinEntryWithGaps(startWithinBlock) if startWithinBlock > 0 else 0)
                 
             # search for delimiter sequence starting at interval position: N with gaps inbetween with maximum length of 1000
-            m = re.search("(N-*){,"+str(len(Parser().blockDelimiter)-1)+"}N", consensusEntry.sequence[startWithinBlock:])
+            m = re.search("(N-*){0,"+str(len(Parser().blockDelimiter)-1)+"}N", consensusEntry.sequence[startWithinBlock:])
             if m is None:
                 raise ConsensusCorruptError(startWithinBlock+consensusEntry.start)
             
