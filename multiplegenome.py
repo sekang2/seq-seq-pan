@@ -1227,7 +1227,7 @@ class Writer:
                         chrstart = chrstarts[0]
                         chr = genome.chromosomes[chrstart]
                         
-                        start = entry.start - chrstart + 1
+                        start = entry.start - chrstart
                         
                         output.write(self._mafEntryHeader.format(chr["desc"], start, ((entry.end - entry.start)+1), entry.strand, chr["length"], entry.sequence))
                     
