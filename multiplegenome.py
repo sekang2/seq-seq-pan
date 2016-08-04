@@ -1240,7 +1240,7 @@ class Writer:
                 
                 for coord, cur_dict in coords_dict.items():
                     output.write(str(coord) + "\t")
-                    new_coords = [str(cur_dict[dest]) for dest in dests]
+                    new_coords = [str(cur_dict.get(dest,"-")) for dest in dests]
                     output.write('\t'.join(new_coords))
                     output.write("\n")
 
