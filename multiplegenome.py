@@ -382,7 +382,11 @@ class Consensus:
         
     def getUndelimitedSequence(self):
         seq = self.sequence
-        seq = seq.replace(Parser().blockDelimiter, '')
+        parts = [seq[i:j] for i,j in zip(self.blockStartIndices, self.blockStartIndices[1:]+[None])]
+        delLen = len(Parser().blockDelimiter)
+        
+        seq = ''.join([part[:-delLen] for part in parts[:-1]] + [parts[-1]])
+        
         return(seq)
         
         
@@ -485,6 +489,9 @@ class Mapper:
         
         addC = ("c" in dests)
         
+        # store and do not reorder!
+        lcbs = alignment.LCBs
+        
         # remove consensus-dest from list (calculation is different)
         if addC:
             dests = sorted(dests)[:-1]
@@ -495,7 +502,7 @@ class Mapper:
                 
                 idx = bisect.bisect_left(consensus.blockStartIndices, coord) 
                 idx -= 1
-                lcb = alignment.LCBs[idx]
+                lcb = lcbs[idx]
                 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
                 posWithinBlock = coord - consensus.blockStartIndices[idx] - 1
@@ -508,9 +515,10 @@ class Mapper:
         else:
             
             sourceBlocks = {}
-            # store ends of blocks for lcb finding lcb for coords
-            for i in range(len(alignment.LCBs)):
-                e = alignment.LCBs[i].getEntry(int(source))
+            # store ends of blocks for finding lcb for coords
+            
+            for i in range(len(lcbs)):
+                e = lcbs[i].getEntry(int(source))
                 if e is not None:
                     sourceBlocks[e.end] = {"lcb":i, "entry":e }
             
@@ -519,11 +527,11 @@ class Mapper:
                 idxInEnds = bisect.bisect_left(sourceEnds, coord)
                 lcbIdx = sourceBlocks[sourceEnds[idxInEnds]]["lcb"]
                 
-                if lcbIdx > len(alignment.LCBs):
+                if lcbIdx > len(lcbs):
                     raise CoordinateOutOfBoundsError(coord, source)
     
                 sourceEntry = sourceBlocks[sourceEnds[idxInEnds]]["entry"]
-                lcb = alignment.LCBs[lcbIdx]
+                lcb = lcbs[lcbIdx]
                 
                 if sourceEntry.strand == "+":
                     posWithinBlockWithoutGaps = coord - sourceEntry.start
@@ -532,7 +540,7 @@ class Mapper:
             
                 # add consensus coordinates to dict
                 if addC:
-                    consLength = sum([lcb.length for lcb in alignment.LCBs[0:lcbIdx]])
+                    consLength = sum([lcb.length for lcb in lcbs[0:lcbIdx]])
                     coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps + 1
                     
                 # check if dests other than consensus are needed
@@ -945,7 +953,7 @@ class Parser:
         return alignment
     
     
-    def parseConsensus(self, filename):
+    def _parseConsensus(self, filename):
         try:
             record = SeqIO.read(open(filename), "fasta")
         except ValueError as e:
@@ -968,7 +976,7 @@ class Parser:
     
     
     def parseBlockSeparatedConsensus(self, filename):
-        consensus = self.parseConsensus(filename+".blockseparated.fasta")
+        consensus = self._parseConsensus(filename+".blockseparated.fasta")
         consensus.blockStartIndices = self._parseConsensusSeparator(filename)
         
         return consensus
@@ -1238,7 +1246,7 @@ class Writer:
                 output.write('\t'.join(dests))
                 output.write("\n")
                 
-                for coord, cur_dict in coords_dict.items():
+                for coord, cur_dict in sorted(coords_dict.items()):
                     output.write(str(coord) + "\t")
                     new_coords = [str(cur_dict.get(dest,"-")) for dest in dests]
                     output.write('\t'.join(new_coords))
