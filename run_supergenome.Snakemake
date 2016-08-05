@@ -2,7 +2,7 @@ import sys
 
 sys.setrecursionlimit(1000000)
 
-SCRIPT="python3.4 /home/jandrasitsc/scripts/dev/multiplegenomealignment/multiplegenome.py"
+SCRIPT="python3.4 " + srcdir("supergenome.py")
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
