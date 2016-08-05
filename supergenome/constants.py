@@ -1,0 +1,1 @@
+BLOCK_DELIMITER = 'N' * 1000
