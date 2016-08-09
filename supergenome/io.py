@@ -7,7 +7,7 @@ from Bio import SeqIO
 
 from supergenome.exception import *
 from supergenome.base import *
-from supergenome.modifier import Splitter
+from supergenome.formatter import Splitter
 
 class Parser:
     def parseXMFA(self, filename):
