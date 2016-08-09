@@ -1,12 +1,13 @@
 import sys
 import os
 import re
+import random
 
 from Bio import SeqIO
 from Bio.Seq import Seq
 
 from supergenome.exception import *
-from supergenome.constants import BLOCK_DELIMITER
+from supergenome.constants import BLOCK_DELIMITER, RANDOM_SEED
 
 class Genome:
 
@@ -51,11 +52,11 @@ class Alignment:
         self.LCBs.append(lcb)
         
         
-    def getConsensus(self, order=0):
+    def getConsensus(self, unambiguous, order=0):
         sortedLCBs = self.getSortedLCBs(order)    
         delim = BLOCK_DELIMITER
         
-        consensusseqs = [lcb.consensusSequence() for lcb in sortedLCBs]
+        consensusseqs = [lcb.consensusSequence(unambiguous) for lcb in sortedLCBs]
         
         #store beginning of each block calculated using lengths of joined LCBs
         lcblengths = [lcb.length for lcb in sortedLCBs]
@@ -141,6 +142,7 @@ class LCB:
         self.number = number
         self.entries = []
         self.length = 0
+        random.seed(a=RANDOM_SEED)
         
         
     def addEntries(self, entries):
@@ -172,11 +174,16 @@ class LCB:
             e.reverseComplement()
         
         
-    def consensusSequence(self):
+    def consensusSequence(self, unambiguous):
         if len(self.entries) > 0:
-            consseq = ''.join([ self._IUPAC((lambda i=i: [e.sequence[i] for e in self.entries])()) 
+            if unambiguous:
+                repl_method = self._random
+            else:
+                repl_method = self._IUPAC
+                                
+            consseq = ''.join([ repl_method((lambda i=i: [e.sequence[i] for e in self.entries])()) 
                                 for i in range(len(self.entries[0].sequence))
-                              ])   # get i'th letter in sequence of each entry of LCB
+                            ])  # get i'th letter in sequence of each entry of LCB   
             return consseq
         else:
             return ""
@@ -200,7 +207,12 @@ class LCB:
             except KeyError as e:
                 raise ConsensusFastaInputError(e.args[0])
 
-        
+    
+    def _random(self, bases):
+        bases = ''.join(bases).replace("-", "")
+        return bases[random.randint(0,len(bases)-1)].upper()
+
+    
 class SequenceEntry:
     
     def __init__(self, genomeNr, start, end, strand, sequence):
@@ -282,11 +294,11 @@ class Consensus:
         self.fastaFile = os.path.abspath(fastaFile)
      
     
-    def fromAlignment(self, alignment, order, fastaFile):
+    def fromAlignment(self, alignment, order, fastaFile, unambiguous):
         self.order = int(order)
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
-        self.sequence, self.blockStartIndices = alignment.getConsensus(order)
+        self.sequence, self.blockStartIndices = alignment.getConsensus(unambiguous, order)
         
         
     def getFastaHeader(self, name):

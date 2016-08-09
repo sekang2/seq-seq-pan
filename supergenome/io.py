@@ -296,11 +296,11 @@ class Writer:
                     output.write("\n")
 
         
-        def writeConsensus(self, alignment, path, name, order=0):
+        def writeConsensus(self, alignment, unambiguous, path, name, order=0):
             filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
             
             consensus = Consensus()
-            consensus.fromAlignment(alignment, order, filename)
+            consensus.fromAlignment(alignment, order, filename, unambiguous)
             
             self._writeConsensusIndex(alignment, filename, order)
             self._writeConsensusSeparator(consensus, alignment, filename, order)
