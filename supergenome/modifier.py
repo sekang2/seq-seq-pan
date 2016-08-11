@@ -74,9 +74,9 @@ class Merger:
                     lastLCB.length += nrGaps
                     
                 # previous entry did not work, try to prepend to next entry
-                if tryNextEntry and len(lcbs) > 1:
-                    nextLCB = splitLCBs[i+1]
-                    nextNewEntry = lastLCB.getEntry(newGenomeNr)
+                if tryNextEntry and len(lcbs) > i:
+                    nextLCB = lcbs[i+1]
+                    nextNewEntry = nextLCB.getEntry(newGenomeNr)
                     if nextNewEntry is not None:
                         tryNextEntry = False
                         
@@ -91,7 +91,7 @@ class Merger:
                         nextNewEntry.sequence = newEntry.sequence + sequence
                         nextNewEntry.start = newEntry.start
                     
-                        nextConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
+                        nextConsensusEntry = nextLCB.getEntry(consensusGenomeNr)
                         if nextConsensusEntry is not None:
                             nextConsensusEntry.sequence = ("-"*nrGaps) + nextConsensusEntry.sequence
                         
