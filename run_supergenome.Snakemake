@@ -42,18 +42,22 @@ def prev_genome(wildcards):
     
 rule all:
     input:  config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
+            config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
             config["outfilename"]+"_split.xmfa",
-            config["outfilename"]+"_split.maf"            
+            config["outfilename"]+"_split.maf"
     
 rule fn_translate:
     input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
+            cbi = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.idx",
             ci = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.idx",
             c = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta",
-            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_split.xmfa"
+            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_split
+            .xmfa"
             
     output: cb = config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
+            cbi = config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             ci = config["outfilename"]+"_consensus.fasta.idx",
             c = config["outfilename"]+"_consensus.fasta",
             xmfa = config["outfilename"]+"_split.xmfa"
@@ -65,6 +69,7 @@ rule fn_translate:
         name="${{name//_consensus.fasta}}"
         out="${{out//_consensus.fasta}}"
         cp {input.cb} {output.cb}
+        cp {input.cbi} {output.cbi}
         cp {input.ci} {output.ci}
         cp {input.c} {output.c}
         cp {input.xmfa} {output.xmfa}
@@ -73,6 +78,8 @@ rule fn_translate:
         sed -i "1 s/$name/$out/g" {output.cb}
         sed -i "1 s/$name/$out/" {output.ci}
         sed -i "2 s/$name/$out/" {output.ci}
+        sed -i "1 s/$name/$out/" {output.cbi}
+        sed -i "2 s/$name/$out/" {output.cbi}
         '''
 
         
