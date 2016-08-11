@@ -50,12 +50,20 @@ def main():
         else:
             try:
                 if args.task == "realign":
-                    realign = realigner.realign(align)
-                    writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
+                    try: 
+                        realign = realigner.realign(align)
+                    except ConsensusXMFAInputError as e:
+                        print(e.message)
+                    else:
+                        writer.writeXMFA(realign, args.output_p, args.output_name + "_realign", args.order)
                 
                 if args.task == "merge":
-                    merged = merger.mergeLCBs(align, 1, 2)
-                    writer.writeXMFA(merged, args.output_p, args.output_name + "_merge", args.order)
+                    try:
+                        merged = merger.mergeLCBs(align, 1, 2)
+                    except ConsensusXMFAInputError as e:
+                        print(e.message)
+                    else:
+                        writer.writeXMFA(merged, args.output_p, args.output_name + "_merge", args.order)
                     
                 if args.task == "consensus":
                     
