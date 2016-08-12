@@ -209,9 +209,21 @@ class LCB:
 
     
     def _random(self, bases):
-        bases = ''.join(bases).replace("-", "")
-        return bases[random.randint(0,len(bases)-1)].upper()
-
+        bases = ''.join(bases).replace("-", "").upper()
+        bases = bases.replace('N', "")
+        if len(bases) == 0:
+            return "N"
+        else:
+            random_choice = bases[random.randint(0,len(bases)-1)].upper()
+            if not (random_choice in ('A', 'C', 'G', 'T')):
+                try:
+                    unambiguous_random = self._iupac_dict[random_choice]
+                except KeyError as e:
+                    raise ConsensusFastaInputError(e.args[0])
+                else:
+                    return unambiguous_random[random.randint(0, len(unambiguous_random)-1)]
+            else:
+                return random_choice
     
 class SequenceEntry:
     
