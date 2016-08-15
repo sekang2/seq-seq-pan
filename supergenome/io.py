@@ -138,7 +138,27 @@ class Parser:
             while line:
                 line = line.strip()
                 
-                if not (line == "" or line.startswith("#")): # skip rest of header - do I need genome info?
+                if line.startswith("#")):
+                    m = re.match("#Sequence(\d+)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                    if m is not None:
+                        number = m.group(1)
+                        fn = m.group(2)
+                        entry = -1
+                        line = xmfa.readline()
+                        m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
+                        if m is not None:
+                            entry = m.group(1)
+                            line = xmfa.readline()
+                            
+                        m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
+                        if m is not None:
+                            format = m.group(1)
+                            line = xmfa.readline()
+                        genome = Genome(fn, format, entry)
+                        alignment.addGenome(genome, number)
+                        continue
+                
+                elif not line == "": 
                     
                     fields = line.split("\t")
                     id = fields[0]
