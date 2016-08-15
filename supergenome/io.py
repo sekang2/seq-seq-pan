@@ -138,7 +138,7 @@ class Parser:
             while line:
                 line = line.strip()
                 
-                if line.startswith("#")):
+                if line.startswith("#"):
                     m = re.match("#Sequence(\d+)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
                     if m is not None:
                         number = m.group(1)
