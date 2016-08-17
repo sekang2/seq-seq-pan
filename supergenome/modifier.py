@@ -97,7 +97,7 @@ class Merger:
                         
                         nextLCB.length += nrGaps
                         
-            # entry should not be merged or could neither be appended nor prepended 
+            # entry should not be merged or could be neither appended nor prepended 
             # add LCBs to alignment as it is
             if tryNextEntry:
                 mergedSplitLCBs.append(lcb)
