@@ -1,17 +1,19 @@
 import bisect
-import collections
+from collections import defaultdict
 import pdb
     
 class Mapper:
     
     def mapCoordinates(self, alignment, consensus, source, dests, coordinates):
         
+        print("len(coordinates):" + str(len(coordinates)))
+        
         if type(dests) is not list:
             dests = [dests]
 
         dests = sorted(dests)
         coordinates = sorted(coordinates)
-        coord_dict = collections.defaultdict(dict)
+        coord_dict = defaultdict(dict)
         
         addC = ("c" in dests)
         
@@ -23,21 +25,22 @@ class Mapper:
             dests = sorted(dests)[:-1]
         
         if source == "c":
-            
+            i = 0
             for coord in coordinates:
-                
+                if i%1000 == 0:
+                    print(i)
                 idx = bisect.bisect_left(consensus.blockStartIndices, coord) 
                 idx -= 1
                 lcb = lcbs[idx]
                 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
-                posWithinBlock = coord - consensus.blockStartIndices[idx] - 1
+                posWithinBlock = coord - consensus.blockStartIndices[idx]
                 
                 if addC:
                     coord_dict[coord]["c"] = coord
                 
                 coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
-                            
+                i = i+1            
         else:
             
             sourceBlocks = {}
@@ -86,20 +89,29 @@ class Mapper:
         for e in entries: # faster than looping through entries everytime to get entry of genome x
             if str(e.genomeNr) in dests: 
             
+                isGap = False
+            
                 if e.strand == "+":
                     eSubgaps = e.getSubGapList(0,posWithinBlock)
                     eSumgaps = 0
+                    
                     if len(eSubgaps) > 0:
                         eSumgaps = sum(end-start for start, end in eSubgaps.items())
-                        
-                    coord_dict[str(e.genomeNr)] = e.start + (posWithinBlock - eSumgaps)
+                        lastGap = sorted(eSubgaps.items())[-1]
+                        isGap = (lastGap[0] <= posWithinBlock and posWithinBlock < lastGap[1])
+                    
+                    if not isGap:
+                        coord_dict[str(e.genomeNr)] = e.start + (posWithinBlock - eSumgaps)
                 else:
                     eSubgaps = e.getSubGapList(e.end - posWithinBlock, e.end)
                     eSumgaps = 0
                     if len(eSubgaps) > 0:
                         eSumgaps = sum(end-start for start, end in eSubgaps.items())
-                        
-                    coord_dict[str(e.genomeNr)] = (e.end - (posWithinBlock - eSumgaps)) * -1
+                        lastGap = sorted(eSubgaps.items())[-1]
+                        isGap = (lastGap[0] <= posWithinBlock and posWithinBlock < lastGap[1])
+                    
+                    if not isGap:
+                        coord_dict[str(e.genomeNr)] = (e.end - (posWithinBlock - eSumgaps)) * -1
         
         return coord_dict
 
