@@ -144,16 +144,16 @@ class Parser:
                         number = m.group(1)
                         fn = m.group(2)
                         entry = -1
-                        line = xmfa.readline()
+                        line = input.readline()
                         m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
                         if m is not None:
                             entry = m.group(1)
-                            line = xmfa.readline()
+                            line = input.readline()
                             
                         m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
                         if m is not None:
                             format = m.group(1)
-                            line = xmfa.readline()
+                            line = input.readline()
                         genome = Genome(fn, format, entry)
                         alignment.addGenome(genome, number)
                         continue
