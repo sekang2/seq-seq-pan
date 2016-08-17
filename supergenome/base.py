@@ -250,7 +250,7 @@ class SequenceEntry:
         if end is None:
             end = len(self.sequence)
             
-        subgaps = {gstart: gend for gstart, gend in self.gaps.items() if gend > start and gstart < end }
+        subgaps = {gstart: gend for gstart, gend in self.gaps.items() if gend > start and gstart <= end }
         if len(subgaps) > 0:
             sortedKeys = sorted(subgaps.keys())
             smallestStart = sortedKeys[0]
@@ -258,7 +258,7 @@ class SequenceEntry:
             
             # if a gap streches over borders of region, make region borders new start or end of gap
             if subgaps[highestStart] > end:
-                subgaps[highestStart] = end
+                subgaps[highestStart] = end + 1
             if smallestStart < start:
                 subgaps[start] = subgaps[smallestStart]
                 del subgaps[smallestStart]
