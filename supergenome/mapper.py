@@ -34,7 +34,7 @@ class Mapper:
                 lcb = lcbs[idx]
                 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
-                posWithinBlock = coord - consensus.blockStartIndices[idx]
+                posWithinBlock = coord - consensus.blockStartIndices[idx] - 1
                 
                 if addC:
                     coord_dict[coord]["c"] = coord
