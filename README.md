@@ -39,7 +39,7 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
 ```
 
 #### Tasks
-Choose task with argument $-t. Arguments $-p and $-n are required for every task.
+Choose task with argument **-t**. Arguments **-p** and **-n** are required for every task.
 
 | task    |description|output|arguments|optional arguments|
 |---------|-----------|------|---------|------------------|
