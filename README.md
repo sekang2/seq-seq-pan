@@ -55,7 +55,8 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
 ```
 snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
 ```
-####Config
+
+#### Config
 
 | name        | description |
 |-------------|-------------|
@@ -64,3 +65,6 @@ snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.
 | merge       |             |
 
 ---
+
+#### Representation of example
+![Workflow](gitlab.com/chrjan/multiplegenomealignment/representation/example.png)
