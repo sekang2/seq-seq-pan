@@ -46,8 +46,8 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |consensus|Create consensus sequence from XMFA file.|2 .FASTA files (with delimiter and without) and 2 .IDX files |-x |-o, -u|
 |maf      |Write MAF file from XMFA file.|.MAF file|-x|-o|
 |map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
-|merge    |Add small LCBs to end or beginning of surrounding LCBs, XMFA must not contain more than 2 sequences.|.XMFA file|-x|-o|
-|realign  |Realign sequences of LCBs around consecutive gaps.|.XMFA file|-x|-o|
+|merge    |Add small LCBs to end or beginning of surrounding LCBs, only possible before resolve-step.|.XMFA file|-x|-o|
+|realign  |Realign sequences of LCBs around consecutive gaps, only possible before resolve-step|.XMFA file|-x|-o|
 |resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
 |separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
 |xmfa     |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
