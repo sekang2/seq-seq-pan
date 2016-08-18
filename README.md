@@ -57,6 +57,6 @@ snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.
 ####Config
 |name       |description|
 |-----------|-----------|
-|genomefile ||
-|outfilename||
-|merge      ||
+|genomefile |   |
+|outfilename|   |
+|merge      |   |
