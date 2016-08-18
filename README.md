@@ -52,11 +52,15 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
 
 ## Pipeline
 ### Usage
+```
 snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
-
+```
 ####Config
-|name       |description|
-|-----------|-----------|
-|genomefile |   |
-|outfilename|   |
-|merge      |   |
+
+| name        | description |
+|-------------|-------------|
+| genomefile  |             |
+| outfilename |             |
+| merge       |             |
+
+---
