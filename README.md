@@ -39,10 +39,10 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
 ```
 
 #### Tasks
-Choose task with argument -t. Arguments -p and -n are required for every task.
+Choose task with argument $-t. Arguments $-p and $-n are required for every task.
 
 | task    |description|output|arguments|optional arguments|
-|---------|-----------|---------|------------------|
+|---------|-----------|------|---------|------------------|
 |consensus|Create consensus sequence from XMFA file.|2 .FASTA files (with delimiter and without) and 2 .IDX files |-x |-o, -u|
 |maf      |Write MAF file from XMFA file.|.MAF file|-x|-o|
 |map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
