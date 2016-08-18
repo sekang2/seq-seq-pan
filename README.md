@@ -70,4 +70,4 @@ snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.
 ---
 
 #### Representation of example
-![Workflow](https://gitlab.com/chrjan/multiplegenomealignment/blob/master/representation/example.png)
+![](representation/example.png)
