@@ -49,7 +49,7 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |merge    |Add small LCBs to end or beginning of surrounding LCBs, XMFA must not contain more than 2 sequences.|.XMFA file|-x|-o|
 |realign  |Realign sequences of LCBs around consecutive gaps.|.XMFA file|-x|-o|
 |resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
-|separate |Separate small LCBs to form genome specific entries.|-x, -l|-o|
+|separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
 |xmfa     |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
 ---
 
@@ -63,8 +63,8 @@ snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.
 
 | name        | description |
 |-------------|-------------|
-| genomefile  |One line per genome with full path;name separated by ';' |
-| outfilename |Prefix for all final output files|
+| genomefile  |One line per genome with full path and name separated by ';'. |
+| outfilename |Prefix for all final output files.|
 | merge       |Optional, default = False. Should merging step be included in pipeline?|
 
 ---
