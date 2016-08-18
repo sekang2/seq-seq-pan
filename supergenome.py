@@ -78,18 +78,18 @@ def main():
                         
                     writer.writeXMFA(separated, args.output_p, args.output_name + "_separated", args.order)
                     
-                elif args.task == "split":
+                elif args.task == "resolve":
                     
                     try:
                         consensus = parser.parseBlockSeparatedConsensus(args.consensus_f)
                         org_align = parser.parseXMFA(consensus.xmfaFile)
-                        splitblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
+                        resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align)
                     except (XMFAHeaderFormatError, LcbInputError) as e:
                         print(e.message + "(" + consensus.xmfaFile + ")")
                     except (ConsensusFastaFormatError, ConsensusXMFAInputError, ConsensusGenomeNumberError) as e:
                         print(e.message)
                     else:
-                        writer.writeXMFA(splitblocks_align, args.output_p, args.output_name+"_split", args.order)
+                        writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_resolve", args.order)
                 
                 elif args.task == "xmfa":
                     
@@ -111,14 +111,14 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
     parser.add_argument("-u", "--unambiguous", dest="unambiguous", help="Do not use ambigiuous IUPAC code in consensus (random choice instead).", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|split|realign|xmfa|map|merge|separate|maf) [default: %(default)s]", choices=["consensus", "split", "realign", "xmfa", "maf", "map", "merge", "separate"], required=False)
+    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf) [default: %(default)s]", choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate"], required=False)
     parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line. Coordinates are 1-based!")
     parser.add_argument("-l", "--length", dest="lcb_length", type=int, help="Shorter LCBs will be separated to form genome specific entries.", required=False, default=0)
     
     args = parser.parse_args()
     
-    if args.task == "split" and args.consensus_f is None:
-         parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"split\"-task (-t/--task).")
+    if args.task == "resolve" and args.consensus_f is None:
+         parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"resolve\"-task (-t/--task).")
     
     if args.task == "map": 
         if args.consensus_f is None:

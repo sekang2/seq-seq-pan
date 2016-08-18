@@ -15,10 +15,10 @@ if MERGE.lower() == "true":
 else:
     MERGE = False
 
-# merge if alignment is not split
-# merging is done in splitting step anyway
-def split_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_split.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
+# merge if alignment is not resolve
+# merging is done in resolving step anyway
+def resolve_or_not(wildcards):
+    return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
     
 
 def mauve_input(wildcards):
@@ -51,21 +51,21 @@ rule all:
             config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
-            config["outfilename"]+"_split.xmfa",
-            config["outfilename"]+"_split.maf"
+            config["outfilename"]+"_resolve.xmfa",
+            config["outfilename"]+"_resolve.maf"
     
 rule fn_translate:
     input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
             cbi = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.idx",
             ci = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.idx",
             c = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta",
-            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_split.xmfa"
+            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_resolve.xmfa"
             
     output: cb = config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             cbi = config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             ci = config["outfilename"]+"_consensus.fasta.idx",
             c = config["outfilename"]+"_consensus.fasta",
-            xmfa = config["outfilename"]+"_split.xmfa"
+            xmfa = config["outfilename"]+"_resolve.xmfa"
             
     shell:
         '''
@@ -89,7 +89,7 @@ rule fn_translate:
 
         
 rule consensus:
-    input: split_or_not
+    input: resolve_or_not
     
     output: temp("add{genome}_consensus.fasta.blockseparated.fasta"),
             temp("add{genome}_consensus.fasta.blockseparated.idx"),
@@ -100,13 +100,13 @@ rule consensus:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
         
 
-rule split:
-    input:  xmfa_prev= lambda wildcards: split_or_not({"genome":prev_genome(wildcards)}), 
+rule resolve:
+    input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
             xmfa= "add{genome}_realign.xmfa", 
             consensus=consensus_file
-    output: temp("add{genome,\d+}_split.xmfa")
+    output: temp("add{genome,\d+}_resolve.xmfa")
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t split -c {input.consensus[1]}"
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]}"
         
         
 rule realign:
