@@ -39,15 +39,18 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
 ```
 
 #### Tasks
-| task    |description|arguments|optional arguments|
+Choose task with argument -t. Arguments -p and -n are required for every task.
+
+| task    |description|output|arguments|optional arguments|
 |---------|-----------|---------|------------------|
-|consensus|   |   |   |
-|maf      |   |   |   |
-|map      |   |   |   |
-|merge    |   |   |   |
-|realign  |   |   |   |
-|resolve  |   |   |   |
-|separate |   |   |   |
+|consensus|Create consensus sequence from XMFA file.|2 .FASTA files (with delimiter and without) and 2 .IDX files |-x |-o, -u|
+|maf      |Write MAF file from XMFA file.|.MAF file|-x|-o|
+|map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
+|merge    |Add small LCBs to end or beginning of surrounding LCBs, XMFA must not contain more than 2 sequences.|.XMFA file|-x|-o|
+|realign  |Realign sequences of LCBs around consecutive gaps.|.XMFA file|-x|-o|
+|resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
+|separate |Separate small LCBs to form genome specific entries.|-x, -l|-o|
+|xmfa     |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
 ---
 
 ## Pipeline
@@ -60,11 +63,11 @@ snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.
 
 | name        | description |
 |-------------|-------------|
-| genomefile  |             |
-| outfilename |             |
-| merge       |             |
+| genomefile  |One line per genome with full path;name separated by ';' |
+| outfilename |Prefix for all final output files|
+| merge       |Optional, default = False. Should merging step be included in pipeline?|
 
 ---
 
 #### Representation of example
-![Workflow](gitlab.com/chrjan/multiplegenomealignment/representation/example.png)
+![Workflow](https://gitlab.com/chrjan/multiplegenomealignment/blob/master/representation/example.png)
