@@ -132,7 +132,7 @@ class Realigner:
                 entryTwo = lcb.entries[1]
                 
                 # get regions to realign
-                oneFirstTwoSecond = self._getRealignRegions(entryOne.getSubGapList(), entryTwo.getSubGapList()  )
+                oneFirstTwoSecond = self._getRealignRegions(entryOne.gaps, entryTwo.gaps)
                 
                 if len(oneFirstTwoSecond) > 0:
                     seqOne, seqTwo = self._realign(entryOne.sequence, entryTwo.sequence, oneFirstTwoSecond)
@@ -140,7 +140,7 @@ class Realigner:
                     entryTwo.sequence = seqTwo
                 
                 # get regions to realign for updated entries with second entry first
-                twoFirstOneSecond = self._getRealignRegions(entryTwo.getSubGapList(), entryOne.getSubGapList() )
+                twoFirstOneSecond = self._getRealignRegions(entryTwo.gaps, entryOne.gaps)
                 
                 if len(twoFirstOneSecond) > 0:
                     seqTwo, seqOne = self._realign(entryTwo.sequence, entryOne.sequence, twoFirstOneSecond)
