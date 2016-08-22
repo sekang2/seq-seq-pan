@@ -83,6 +83,7 @@ class Alignment:
             raise ParameterError("order", order, "between 0 and " + str(len(self.genomes)) + " (number of genomes in XMFA)")
     
     def isInvalid(self):
+        invalid = True
         for genomenr in self.genomes.keys():
             ordered = self.getSortedLCBs(genomenr)
             lastend = 0
