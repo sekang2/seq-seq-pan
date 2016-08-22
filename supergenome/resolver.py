@@ -50,6 +50,7 @@ class Resolver:
         except ParameterError:
             raise ConsensusFastaFormatError()
         else:
+        
             for lcb in resolved.LCBs:
                 recalculatedLCB = LCB(lcb.number)
                 newEntry = lcb.getEntry(newGenomeNr)
@@ -197,7 +198,7 @@ class Resolver:
             
             # count gaps in original sequence before start of sequence to get correct start and end for entry
             eSumgaps = 0
-            eSubgaps = e.getSubGapList(0,startWithinBlock)
+            eSubgaps = e.getSubGapList(0,startWithinBlock - 1)
             if len(eSubgaps) > 0:
                 eSumgaps = sum(end-start for start, end in eSubgaps.items())
             
