@@ -91,12 +91,12 @@ class Resolver:
         
         for startInterval in intervals:
             startWithinBlock = startInterval - consensusEntry.start + 1
-            
+            offset = (startWithinBlock * -1 if startWithinBlock < 0 else 0)
             # in case of delimiter sequencing at beginning of entry, index will be negative but should be 0
             startWithinBlock = (consensusEntry.getPositionWithinEntryWithGaps(startWithinBlock) if startWithinBlock > 0 else 0)
                 
             # search for delimiter sequence starting at interval position: N with gaps inbetween with maximum length of 1000
-            m = re.search("(N-*){0,"+str(len(BLOCK_DELIMITER)-1)+"}N", consensusEntry.sequence[startWithinBlock:])
+            m = re.search("(N-*){0,"+str(len(BLOCK_DELIMITER)-offset-1)+"}N", consensusEntry.sequence[startWithinBlock:])
             if m is None:
                 raise ConsensusCorruptError(startWithinBlock+consensusEntry.start)
             
