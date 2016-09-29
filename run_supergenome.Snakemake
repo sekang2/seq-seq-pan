@@ -3,6 +3,7 @@ import sys
 sys.setrecursionlimit(1000000)
 
 SCRIPT="python3.4 " + srcdir("supergenome.py")
+JAR="java -jar /home/jandrasitsc/scripts/dev/XMFAConsencus/XMFAconsensus_fixed.jar"
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
@@ -97,8 +98,8 @@ rule consensus:
             temp("add{genome}_consensus.fasta")
     
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
-        
+        #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
+        "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
 
 rule resolve:
     input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
