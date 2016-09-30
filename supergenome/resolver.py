@@ -3,7 +3,7 @@ import bisect
 
 from supergenome.exception import *
 from supergenome.base import *
-from supergenome.modifier import Merger
+from supergenome.modifier import Merger, Realigner
 
 class Resolver:
     
@@ -43,7 +43,10 @@ class Resolver:
         
         if merge:
             merger = Merger()
+            realigner = Realigner()
             resolved = merger.mergeLCBs(resolved, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
+            # realign step necessary in case of consecutive gaps introduced by merging
+            resolved = realigner.realign(resolved)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():

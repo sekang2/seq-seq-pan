@@ -42,7 +42,7 @@ class Merger:
             consensusEntry = lcb.getEntry(consensusGenomeNr)
             tryNextEntry = True
             
-            # check if new entry is small and only created by splitting (consensus is None)
+            # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
             if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= 10:
                 
                 nrGaps = len(newEntry.sequence)
@@ -55,14 +55,7 @@ class Merger:
                     if lastNewEntry is not None:
                         tryNextEntry = False
                         
-                        # check if there is a gap at the end of former entry
                         sequence = lastNewEntry.sequence
-                        m = re.search("-+$", sequence)
-                        if m is not None:
-                            pos = m.start(0)
-                            nrGaps -= (len(sequence) - pos)
-                            sequence = sequence[:pos]
-                            
                         
                         lastNewEntry.sequence = sequence + newEntry.sequence
                         lastNewEntry.end = newEntry.end
@@ -80,13 +73,7 @@ class Merger:
                     if nextNewEntry is not None:
                         tryNextEntry = False
                         
-                        # check if there is a gap at the start of former entry
                         sequence = nextNewEntry.sequence
-                        m = re.search("^-+", sequence)
-                        if m is not None:
-                            pos = m.end(0)
-                            sequence = sequence[pos:]
-                            nrGaps -= pos
                         
                         nextNewEntry.sequence = newEntry.sequence + sequence
                         nextNewEntry.start = newEntry.start
@@ -180,7 +167,12 @@ class Realigner:
             if minSeqLength < 10:
             
                 seqStart = interval[minIndex][0] - index_offset - minSeqLength
-                seqEnd = interval[minIndex][1] -index_offset + minSeqLength
+                seqEnd = interval[minIndex][1] - index_offset + minSeqLength
+                
+                # do not go over boundaries of sequences!
+                seqStart = max(seqStart, 0)
+                minOrgSeqLength = min(len(seqOne), len(seqTwo)) - 1
+                seqEnd = min(seqEnd, minOrgSeqLength)
                 
                 alignments = pairwise2.align.globalxx(seqOne[seqStart:seqEnd].replace("-", "") , seqTwo[seqStart:seqEnd].replace("-", ""))
                                 
