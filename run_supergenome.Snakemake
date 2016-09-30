@@ -16,10 +16,16 @@ if MERGE.lower() == "true":
 else:
     MERGE = False
 
-# merge if alignment is not resolve
-# merging is done in resolving step anyway
+# resolving not possible/necessary for alignment of first two genomes
 def resolve_or_not(wildcards):
     return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
+
+# merge after alignment of first two genomes
+def merge_or_not(wildcards):
+    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE and int(wildcards["genome"]) == 1 else "add"+wildcards["genome"]+".xmfa")
+# merging of small blocks from alignment together with small blocks of splitting when adding 3rd genome and so forth    
+def merge_or_not_param(wildcards):
+    return ("-m" if MERGE else "")
     
 
 def mauve_input(wildcards):
@@ -41,10 +47,6 @@ def consensus_file(wildcards):
 
 def prev_genome(wildcards):
     return(str(int(wildcards['genome']) - 1))
-
-
-def merge_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+".xmfa")
     
     
 rule all:
@@ -106,8 +108,9 @@ rule resolve:
             xmfa= "add{genome}_realign.xmfa", 
             consensus=consensus_file
     output: temp("add{genome,\d+}_resolve.xmfa")
+    params: merge=merge_or_not_param
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]}"
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]} {params.merge}"
         
         
 rule realign:

@@ -3,10 +3,11 @@ import bisect
 
 from supergenome.exception import *
 from supergenome.base import *
+from supergenome.modifier import Merger
 
 class Resolver:
     
-    def resolveMultiAlignment(self, alignment, consensus, orgAlignment):
+    def resolveMultiAlignment(self, alignment, consensus, orgAlignment, merge=False):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
 
@@ -39,6 +40,10 @@ class Resolver:
                     resolved.addLCB(slcb)
             else:
                 resolved.addLCB(lcb)
+        
+        if merge:
+            merger = Merger()
+            resolved = merger.mergeLCBs(resolved, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
         
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
