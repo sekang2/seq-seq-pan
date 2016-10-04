@@ -13,9 +13,9 @@ Software required for running pipeline for set of genomes
 ### Usage
 ```
 supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
-                [-c CONSENSUS_F] [-u] [-o ORDER]
+                [-c CONSENSUS_F] [-u] [-m] [-o ORDER]
                 [-t {consensus,resolve,realign,xmfa,maf,map,merge,separate}]
-                [-i COORD_F] [-l LCB_LENGTH]
+                [-i COORD_F] [-l LCB_LENGTH] 
 
   -h, --help            show this help message and exit
   -x XMFA_F, --xmfa XMFA_F
@@ -27,6 +27,7 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
   -c CONSENSUS_F, --consensus CONSENSUS_F
                         consensus FASTA file used in XMFA
   -u, --unambiguous     Do not use ambigiuous IUPAC code in consensus (random choice instead).
+  -m, --merge           Merge small blocks to previous or next block in resolve-step.
   -o ORDER, --order ORDER
                         ordering of output (0,1,2,...) [default: 0]
   -t {consensus,resolve,realign,xmfa,maf,map,merge,separate}, --task {consensus,resolve,realign,xmfa,maf,map,merge,separate}
@@ -46,7 +47,7 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |consensus|Create consensus sequence from XMFA file.|2 .FASTA files (with delimiter and without) and 2 .IDX files |-x |-o, -u|
 |maf      |Write MAF file from XMFA file.|.MAF file|-x|-o|
 |map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
-|merge    |Add small LCBs to end or beginning of surrounding LCBs, only possible before resolve-step.|.XMFA file|-x|-o|
+|merge    |Add small LCBs to end or beginning of surrounding LCBs. Stand-alone merging step can only be used with two aligned sequences. |.XMFA file|-x|-o|
 |realign  |Realign sequences of LCBs around consecutive gaps, only possible before resolve-step|.XMFA file|-x|-o|
 |resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
 |separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
