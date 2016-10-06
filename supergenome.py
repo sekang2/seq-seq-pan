@@ -1,4 +1,4 @@
-#!/usr/bin/python3.4
+#!/usr/bin/python3
 
 import argparse
 import sys
@@ -18,8 +18,8 @@ def main():
     realigner = Realigner()
     mapper = Mapper()
     merger = Merger()
-    separator = Separator()
-   
+    separator = Separator() 
+
     if args.task == "map":
         try:
             sparse_align, sparse_consensus = parser.parseConsensusIndex(args.consensus_f)
@@ -58,6 +58,7 @@ def main():
                 if args.task == "merge":
                     try:
                         merged = merger.mergeLCBs(align, 1, 2)
+                        merged = merger.mergeLCBs(merged, 2, 1)
                     except ConsensusXMFAInputError as e:
                         print(e.message)
                     else:
@@ -92,6 +93,7 @@ def main():
                     writer.writeXMFA(align, args.output_p, args.output_name, args.order)
                 
                 elif args.task == "maf":
+
                     writer.writeMAF(align, args.output_p, args.output_name, args.order)
                     
             except ParameterError as e:
