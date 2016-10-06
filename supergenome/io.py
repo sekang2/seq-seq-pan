@@ -44,11 +44,11 @@ class Parser:
                         continue
                 
                 elif line.startswith(">"): # a sequence start was encountered
-                    if len(seqparts) > 0: # save previous sequence
+                    if len(seqparts) > 0 and int(end) > 0: # save previous sequence
                         seq = "".join(seqparts)
                         ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                         
-                        seqparts = []
+                    seqparts = []
                     m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
                     if m is not None:
                         seqNr = m.group(1)
@@ -59,6 +59,7 @@ class Parser:
                         raise XMFAHeaderFormatError(line.strip())
                 elif line.startswith("="):
                     seq = "".join(seqparts)
+                    
                     ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                     
                     alignment.addLCBEntries(ses)
