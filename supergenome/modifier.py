@@ -165,6 +165,8 @@ class Realigner:
             minIndex, minSeqLength = min(enumerate( [interval[0][1] - interval[0][0], interval[1][1] - interval[1][0] ] ), key=lambda p: p[1])
             
             if minSeqLength < 10:
+
+                minSeqLength = 10
             
                 seqStart = interval[minIndex][0] - index_offset - minSeqLength
                 seqEnd = interval[minIndex][1] - index_offset + minSeqLength
@@ -175,16 +177,16 @@ class Realigner:
                 seqEnd = min(seqEnd, minOrgSeqLength)
                 
                 alignments = pairwise2.align.globalxx(seqOne[seqStart:seqEnd].replace("-", "") , seqTwo[seqStart:seqEnd].replace("-", ""))
-                                
-                maxscore = max( [x[2] for x in alignments] )
-                alignments = (lambda maxscore=maxscore: [item for item in alignments if item[2] == maxscore])()
+                if len(alignments) > 0:                                
+                    maxscore = max( [x[2] for x in alignments] )
+                    alignments = (lambda maxscore=maxscore: [item for item in alignments if item[2] == maxscore])()
                 
-                minlength = min( [x[4] for x in alignments] )
-                alignments = (lambda minlength=minlength: [item for item in alignments if item[4] == minlength])()
+                    minlength = min( [x[4] for x in alignments] )
+                    alignments = (lambda minlength=minlength: [item for item in alignments if item[4] == minlength])()
                 
-                seqOne = alignments[0][0].join([ seqOne[:seqStart], seqOne[seqEnd:] ])
-                seqTwo = alignments[0][1].join([ seqTwo[:seqStart], seqTwo[seqEnd:] ])
+                    seqOne = alignments[0][0].join([ seqOne[:seqStart], seqOne[seqEnd:] ])
+                    seqTwo = alignments[0][1].join([ seqTwo[:seqStart], seqTwo[seqEnd:] ])
                 
-                index_offset += ((seqEnd - seqStart) - minlength)
+                    index_offset += ((seqEnd - seqStart) - minlength)
 
         return (seqOne, seqTwo)
