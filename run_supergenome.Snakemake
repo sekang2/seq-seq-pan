@@ -20,10 +20,10 @@ else:
 def resolve_or_not(wildcards):
     return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
 
-# merge after alignment of first two genomes
+# merge after alignment
 def merge_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE and int(wildcards["genome"]) == 1 else "add"+wildcards["genome"]+".xmfa")
-# merging of small blocks from alignment together with small blocks of splitting when adding 3rd genome and so forth    
+    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+".xmfa")
+    
 def merge_or_not_param(wildcards):
     return ("-m" if MERGE else "")
     
