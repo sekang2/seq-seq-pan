@@ -27,6 +27,7 @@ class Separator:
 class Merger:
 
     def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr):
+        
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
             
@@ -40,54 +41,74 @@ class Merger:
             lcb = lcbs[i]
             newEntry = lcb.getEntry(newGenomeNr)
             consensusEntry = lcb.getEntry(consensusGenomeNr)
-            tryNextEntry = True
+            prepend = False
+            append = False
+            revcompl = False
+            
+            neighbourNewEntry = None
+            neighbourConsensusEntry = None
             
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
             if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= 10:
                 
                 nrGaps = len(newEntry.sequence)
-                #sequence = newEntry.sequence
                 
                 # try to append to previous entry
                 if i > 0:
-                    lastLCB = mergedSplitLCBs[-1]
-                    lastNewEntry = lastLCB.getEntry(newGenomeNr)
-                    if lastNewEntry is not None:
-                        tryNextEntry = False
+                    neighbourLCB = mergedSplitLCBs[-1]
+                    neighbourNewEntry = neighbourLCB.getEntry(newGenomeNr)
+                    if neighbourNewEntry is not None:
                         
-                        sequence = lastNewEntry.sequence
+                        if newEntry.strand == neighbourNewEntry.strand:
+                            append = True
+                        else:
+                            prepend = True
+                            revcompl = True
                         
-                        lastNewEntry.sequence = sequence + newEntry.sequence
-                        lastNewEntry.end = newEntry.end
-                    
-                        lastConsensusEntry = lastLCB.getEntry(consensusGenomeNr)
-                        if lastConsensusEntry is not None:
-                            lastConsensusEntry.sequence += ("-"*nrGaps)
-                    
-                    lastLCB.length += nrGaps
-                    
                 # previous entry did not work, try to prepend to next entry
-                if tryNextEntry and len(lcbs) > i:
-                    nextLCB = lcbs[i+1]
-                    nextNewEntry = nextLCB.getEntry(newGenomeNr)
-                    if nextNewEntry is not None:
-                        tryNextEntry = False
+                if not(prepend) and not(append) and len(lcbs) > i:
+                    neighbourLCB = lcbs[i+1]
+                    neighbourNewEntry = neighbourLCB.getEntry(newGenomeNr)
+                    if neighbourNewEntry is not None:
                         
-                        sequence = nextNewEntry.sequence
+                        if newEntry.strand == neighbourNewEntry.strand:
+                            prepend = True
+                        else:
+                            append = True
+                            revcompl = True
                         
-                        nextNewEntry.sequence = newEntry.sequence + sequence
-                        nextNewEntry.start = newEntry.start
+                        
+            if append or prepend:
+            
+                if revcompl:
+                    newEntry.reverseComplement()
+            
+                sequence = neighbourNewEntry.sequence
+                neighbourConsensusEntry = neighbourLCB.getEntry(consensusGenomeNr)
+                neighbourLCB.length += nrGaps
+            
+                neighbourNewEntry.end = max(newEntry.end, neighbourNewEntry.end)
+                neighbourNewEntry.start = min(newEntry.start, neighbourNewEntry.start)
+            
+                if append:
                     
-                        nextConsensusEntry = nextLCB.getEntry(consensusGenomeNr)
-                        if nextConsensusEntry is not None:
-                            nextConsensusEntry.sequence = ("-"*nrGaps) + nextConsensusEntry.sequence
-                        
-                        nextLCB.length += nrGaps
-                        
+                    neighbourNewEntry.sequence = sequence + newEntry.sequence
+                    
+                    if neighbourConsensusEntry is not None:
+                        neighbourConsensusEntry.sequence += ("-"*nrGaps)
+                
+                elif prepend:
+                    
+                    neighbourNewEntry.sequence = newEntry.sequence + sequence
+                
+                    if neighbourConsensusEntry is not None:
+                        neighbourConsensusEntry.sequence = ("-"*nrGaps) + neighbourConsensusEntry.sequence
+                    
             # entry should not be merged or could be neither appended nor prepended 
             # add LCBs to alignment as it is
-            if tryNextEntry:
+            else:
                 mergedSplitLCBs.append(lcb)
+                
 
         merged = Alignment(alignment.xmfaFile)
         for nr, genome in alignment.genomes.items():
