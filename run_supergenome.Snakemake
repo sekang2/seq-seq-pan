@@ -11,11 +11,19 @@ with open(config["genomefile"], "r") as f:
 GENOME_DICT = {str(idx): {"name": GENOMES[idx].split(";")[1].strip(), "file":GENOMES[idx].split(";")[0].strip()} for idx in range(len(GENOMES))}
 GENOME_NAMES = [str(idx) for idx in range(len(GENOMES))]
 MERGE = config.get("merge", "")
+UNAMBIGUOUS = config.get("unambiguous", "")
 if MERGE.lower() == "true":
     MERGE = True
 else:
     MERGE = False
 
+
+if UNAMBIGUOUS.lower() == "true":
+    UNAMBIGUOUS = True
+else:
+    UNAMBIGUOUS = False    
+    
+    
 # resolving not possible/necessary for alignment of first two genomes
 def resolve_or_not(wildcards):
     return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
@@ -98,10 +106,12 @@ rule consensus:
             temp("add{genome}_consensus.fasta.blockseparated.idx"),
             temp("add{genome}_consensus.fasta.idx"),
             temp("add{genome}_consensus.fasta")
-    
-    shell:
-        #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
-        "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
+    #params: u= UNAMBIGUOUS 
+    run:
+        if UNAMBIGUOUS:
+            shell("{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus -u")
+        else:
+            shell("{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}")
 
 rule resolve:
     input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
