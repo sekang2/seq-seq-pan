@@ -6,19 +6,10 @@ from supergenome.base import *
 
 class Resolver:
     
-    def resolveMultiAlignment(self, alignment, consensus):
+    def resolveMultiAlignment(self, alignment, consensus, consensusGenomeNr, newGenomeNr):
         
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
-
-        if alignment.genomes[1].filepath == consensus.fastaFile:
-            consensusGenomeNr = 1
-        elif alignment.genomes[2].filepath == consensus.fastaFile:
-            consensusGenomeNr = 2
-        else:
-            raise ConsensusGenomeNumberError()
-        
-        newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
     
         resolved = Alignment(alignment.xmfaFile)
         for nr, genome in alignment.genomes.items():
@@ -44,18 +35,9 @@ class Resolver:
         return(resolved)
         
             
-    def reconstructAlignment(self, resolvedaln, consensus, orgAlignment):
+    def reconstructAlignment(self, resolvedaln, consensus, orgAlignment, consensusGenomeNr, newGenomeNr):
         if len(resolvedaln.genomes) > 2:
             raise ConsensusXMFAInputError()
-
-        if resolvedaln.genomes[1].filepath == consensus.fastaFile:
-            consensusGenomeNr = 1
-        elif resolvedaln.genomes[2].filepath == consensus.fastaFile:
-            consensusGenomeNr = 2
-        else:
-            raise ConsensusGenomeNumberError()
-        
-        newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
         
         # add genomes from consensus and new genome
         recalculated = Alignment(orgAlignment.xmfaFile)

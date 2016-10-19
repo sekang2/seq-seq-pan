@@ -80,14 +80,24 @@ def main():
                     try:
                         consensus = parser.parseBlockSeparatedConsensus(args.consensus_f)
                         org_align = parser.parseXMFA(consensus.xmfaFile)
-                        resolveblocks_align = resolver.resolveMultiAlignment(align, consensus)
+                        
+                        if align.genomes[1].filepath == consensus.fastaFile:
+                            consensusGenomeNr = 1
+                        elif align.genomes[2].filepath == consensus.fastaFile:
+                            consensusGenomeNr = 2
+                        else:
+                            raise ConsensusGenomeNumberError()
+                        
+                        newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
+                        
+                        resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                         
                         if args.merge:
                             res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                             # realign step necessary in case of consecutive gaps introduced by merging
                             resolveblocks_align = realigner.realign(res_merge)
 
-                        reconstruct_align = resolver.reconstructAlignment(resolveblocks_align, consensus, org_align)
+                        reconstruct_align = resolver.reconstructAlignment(resolveblocks_align, consensus, org_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                             
                     except (XMFAHeaderFormatError, LcbInputError) as e:
                         print(e.message + "(" + consensus.xmfaFile + ")")
