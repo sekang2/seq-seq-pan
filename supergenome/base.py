@@ -144,7 +144,10 @@ class LCB:
         self.entries = []
         self.length = 0
         random.seed(a=RANDOM_SEED)
-        
+    
+    def __eq__(self, other):
+        return sorted(self.entries) == sorted(other.entries)
+
         
     def addEntries(self, entries):
         if type(entries) is not list:
@@ -241,6 +244,10 @@ class SequenceEntry:
         if name == "sequence":
             self._gapDict()
     
+    def __eq__(self, other):
+        return ( self.sequence == other.sequence and 
+                 self.start == other.start and 
+                 self.strand == other.strand )
     
     def _gapDict(self):
         self.gaps = {i.start() : i.end() for i in re.finditer('-+', self.sequence)}
