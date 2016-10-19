@@ -3,11 +3,11 @@ import bisect
 
 from supergenome.exception import *
 from supergenome.base import *
-from supergenome.modifier import Merger, Realigner
 
 class Resolver:
     
-    def resolveMultiAlignment(self, alignment, consensus, orgAlignment, merge=False):
+    def resolveMultiAlignment(self, alignment, consensus):
+        
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
 
@@ -41,25 +41,36 @@ class Resolver:
             else:
                 resolved.addLCB(lcb)
         
-        if merge:
-            merger = Merger()
-            realigner = Realigner()
-            resolved = merger.mergeLCBs(resolved, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
-            # realign step necessary in case of consecutive gaps introduced by merging
-            resolved = realigner.realign(resolved)
+        return(resolved)
         
+            
+    def reconstructAlignment(self, resolvedaln, consensus, orgAlignment):
+        if len(resolvedaln.genomes) > 2:
+            raise ConsensusXMFAInputError()
+
+        if resolvedaln.genomes[1].filepath == consensus.fastaFile:
+            consensusGenomeNr = 1
+        elif resolvedaln.genomes[2].filepath == consensus.fastaFile:
+            consensusGenomeNr = 2
+        else:
+            raise ConsensusGenomeNumberError()
+        
+        newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
+        
+        # add genomes from consensus and new genome
         recalculated = Alignment(orgAlignment.xmfaFile)
         for nr, genome in orgAlignment.genomes.items():
             recalculated.addGenome(genome, nr)
         nrGenomes = len(orgAlignment.genomes)+1
-        recalculated.addGenome(alignment.genomes[newGenomeNr], nrGenomes)
+        recalculated.addGenome(resolvedaln.genomes[newGenomeNr], nrGenomes)
         try:
             sortedOrgLCBs = orgAlignment.getSortedLCBs(consensus.order)    
         except ParameterError:
             raise ConsensusFastaFormatError()
         else:
         
-            for lcb in resolved.LCBs:
+            # for each block reconstruct original sequence from consensus entry and/or add entry from new genome
+            for lcb in resolvedaln.LCBs:
                 recalculatedLCB = LCB(lcb.number)
                 newEntry = lcb.getEntry(newGenomeNr)
                 

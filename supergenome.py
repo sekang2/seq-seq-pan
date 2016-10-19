@@ -80,13 +80,21 @@ def main():
                     try:
                         consensus = parser.parseBlockSeparatedConsensus(args.consensus_f)
                         org_align = parser.parseXMFA(consensus.xmfaFile)
-                        resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, org_align, merge = args.merge)
+                        resolveblocks_align = resolver.resolveMultiAlignment(align, consensus)
+                        
+                        if args.merge:
+                            res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
+                            # realign step necessary in case of consecutive gaps introduced by merging
+                            resolveblocks_align = realigner.realign(res_merge)
+
+                        reconstruct_align = resolver.reconstructAlignment(resolveblocks_align, consensus, org_align)
+                            
                     except (XMFAHeaderFormatError, LcbInputError) as e:
                         print(e.message + "(" + consensus.xmfaFile + ")")
                     except (ConsensusFastaFormatError, ConsensusXMFAInputError, ConsensusGenomeNumberError) as e:
                         print(e.message)
                     else:
-                        writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_resolve", args.order)
+                        writer.writeXMFA(reconstruct_align, args.output_p, args.output_name+"_resolve", args.order)
                 
                 elif args.task == "xmfa":
                     
