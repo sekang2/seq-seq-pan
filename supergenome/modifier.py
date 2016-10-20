@@ -26,14 +26,14 @@ class Separator:
 
 class Merger:
 
-    def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr):
+    def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr, blockLength):
         
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
             
         lcbs = alignment.getSortedLCBs(newGenomeNr)
        
-        # do not create small (less bp than 10) LCBs by splitting, but append/prepend sequence         
+        # do not create small (less bp than blocklength) LCBs by splitting, but append/prepend sequence         
         mergedSplitLCBs = []
         
         for i in range(len(lcbs)):
@@ -49,7 +49,7 @@ class Merger:
             neighbourConsensusEntry = None
             
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
-            if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= 10:
+            if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= blockLength:
                 
                 nrGaps = len(newEntry.sequence)
                 
