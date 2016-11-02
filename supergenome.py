@@ -93,7 +93,7 @@ def main():
                         resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                         
                         if args.merge:
-                            res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr, args.lcb_length)
+                            res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr, blockLength=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
                             resolveblocks_align = realigner.realign(res_merge)
 
