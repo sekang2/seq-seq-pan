@@ -58,9 +58,9 @@ class Parser:
                     else:
                         raise XMFAHeaderFormatError(line.strip())
                 elif line.startswith("="):
-                    seq = "".join(seqparts)
-                    
-                    ses.append(SequenceEntry(seqNr, start, end, strand, seq))
+                    if len(seqparts) > 0 and int(end) > 0:
+                        seq = "".join(seqparts)
+                        ses.append(SequenceEntry(seqNr, start, end, strand, seq))
                     
                     alignment.addLCBEntries(ses)
                     
