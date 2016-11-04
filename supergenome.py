@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import pdb
 
 from supergenome.io import Parser, Writer
 from supergenome.modifier import Realigner, Merger, Separator
@@ -78,6 +79,7 @@ def main():
                     
                 elif args.task == "resolve":
                     try:
+                        
                         consensus = parser.parseBlockSeparatedConsensus(args.consensus_f)
                         org_align = parser.parseXMFA(consensus.xmfaFile)
                         
@@ -90,13 +92,18 @@ def main():
                         
                         newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
                         
+                        #pdb.set_trace()
                         resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
+                        #writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_resolvestep", args.order)
                         
                         if args.merge:
                             res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr, blockLength=args.lcb_length)
+                            res_merge = merger.mergeLCBs(res_merge, consensusGenomeNr=newGenomeNr, newGenomeNr=consensusGenomeNr, blockLength=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
                             resolveblocks_align = realigner.realign(res_merge)
 
+                            #writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_mergestep", args.order)    
+                            
                         reconstruct_align = resolver.reconstructAlignment(resolveblocks_align, consensus, org_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                             
                     except (XMFAHeaderFormatError, LcbInputError) as e:
