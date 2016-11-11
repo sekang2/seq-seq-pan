@@ -1,6 +1,7 @@
 package org.rki.supergenome;
 
 import java.util.LinkedList;
+import java.util.Random;
 
 public class LCB {
 	public static char BASE_A = 0b0001;
@@ -24,8 +25,15 @@ public class LCB {
 			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, 0, BASE_Y, 0, //[20]: 'A' 
 			0, 0, 0, 0, 0, 0, //[46]-[51]: '[' - '`'
 			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, 0, BASE_Y, 0}; //[52]: 'a'
-	public static char[] REVTABLE = {'-', 'A', 'C', 'M', 'G', 'R', 'S', 'V', 'T', 'W', 'Y', 'H', 'K', 'D', 'B', 'N'};
+//	public static char[] REVTABLE = {'-', 'A', 'C', 'M', 'G', 'R', 'S', 'V', 'T', 'W', 'Y', 'H', 'K', 'D', 'B', 'N'};
 
+	
+	public static int[] FACTOR = {0, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0};
+	public static char[] UNAMB = {BASE_GAP, BASE_A, BASE_C, BASE_G, BASE_T};
+	public static int UNAMB_LEN = 5;
+	
+	public static char[] REVTABLE = {'-', 'A', 'C', 'G', 'T'};
+	
 	private class GapStretch {
 		public int from;
 		public int to;
@@ -86,9 +94,10 @@ public class LCB {
 	private StringBuilder currentSequenceString = null;
 	private int length = 0;
 	private LinkedList<Sequence> sequences = new LinkedList<Sequence>();
-	private char[] consensus = null;
+	private int[][] consensus = null;
 	private String consensusString = null;
 	private Sequence currentSequence = null;
+	private Random random = new Random(23121989);
 	
 	public void startNewSequence(String defline) {
 		if(currentSequence != null)
@@ -108,10 +117,44 @@ public class LCB {
 	public void makeConsensus() {
 		sequences.add(currentSequence);
 		addSequenceToConsensus();
-		for(int i=0; i<consensus.length; i++) {
-			consensus[i] = REVTABLE[consensus[i]];
+		char[] seq = new char[length];
+		for(int i=0; i<length; i++) {
+			/* loop through unambiguous base array and find max:
+			 * if max is 0 use "N"
+			 * if max is greater than 0 and current value is equal, change index based on random number
+			 * if all values are the same use "N" 
+			 * if any base is present, do not use gap 
+			 */
+			int max_idx = 0;
+			int max_val = 0;
+			int equal = 0;
+			for(int j=0; j < UNAMB_LEN; j++){
+				int cur_val = consensus[i][j];
+				
+				// current value is bigger or current max is a gap
+				if(cur_val > max_val | (cur_val > 0 & max_idx == 0 )){ 
+					max_val = cur_val;
+					max_idx = j;
+					equal = 0;
+				}else if(cur_val == max_val){
+					
+					// change base based on random number
+					if(random.nextBoolean()){
+						max_idx = j;
+					}
+					
+					equal += 1;
+				}
+			}
+			
+			// no max value or all values of bases the same
+			if(max_val == 0 || equal == (UNAMB_LEN - 2)){
+				seq[i] = 'N';
+			}else{
+				seq[i] = REVTABLE[max_idx];
+			}
 		}
-		consensusString = new String(consensus);
+		consensusString = new String(seq);
 	}
 	
 	public String getConsensus() {
@@ -130,35 +173,16 @@ public class LCB {
 	}
 	
 	private void addSequenceToConsensus() {
-		if(length == 0 && currentSequenceString != null) {
-			consensus = currentSequenceString.toString().toCharArray();
-			length = consensus.length;
-			GapStretch gap = null;
-			int lastGap = -2;
-			for(int i=0; i<length; i++) {
-				if(consensus[i] == '-') {
-					if(gap == null) {
-						gap = new GapStretch(i);
-					}
-					else if(lastGap != i-1) {
-						gap.to = lastGap+1;
-						sequences.getLast().addGap(gap);
-						gap = new GapStretch(i);
-					}
-					lastGap = i;
-				}
-				else if(consensus[i] < TABLEOFFSET || consensus[i] > BASETABLE.length + TABLEOFFSET) {
-					continue;
-				}
-				consensus[i] = BASETABLE[consensus[i] - TABLEOFFSET];
-			}
-			if(gap != null) {
-				gap.to = lastGap+1;
-				sequences.getLast().addGap(gap);				
-			}
-		}
-		else if(currentSequenceString != null && currentSequenceString.length() != 0) {
+		if(currentSequenceString != null && currentSequenceString.length() != 0){
+			
 			char[] seq = currentSequenceString.toString().toCharArray();
+		
+			if(length == 0 ) {
+				length = seq.length;
+				consensus = new int[length][UNAMB_LEN];
+			}
+			
+			
 			GapStretch gap = null;
 			int lastGap = -2;
 			for(int i=0; i<length; i++) {
@@ -172,11 +196,22 @@ public class LCB {
 						gap = new GapStretch(i);
 					}
 					lastGap = i;
+					consensus[i][0] += 1;
 				}
 				else if(seq[i] < TABLEOFFSET || seq[i] > BASETABLE.length + TABLEOFFSET) {
 					continue;
+				}else{
+					char bin_rep = BASETABLE[seq[i] - TABLEOFFSET];
+					
+					// loop through unambigious bases
+					// add factor (3, 2, 1 ) to positions in consensus array
+					for (int c=1; c < UNAMB_LEN; c++){
+						if((bin_rep | UNAMB[c]) == bin_rep){
+							consensus[i][c] += FACTOR[bin_rep];
+						}
+					}
 				}
-				consensus[i] |= BASETABLE[seq[i] - TABLEOFFSET];
+				
 			}
 			if(gap != null) {
 				gap.to = lastGap+1;
