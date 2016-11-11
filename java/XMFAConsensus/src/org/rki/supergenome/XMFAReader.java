@@ -34,15 +34,17 @@ public class XMFAReader {
 		LCB res = new LCB();
 		String line;
 		while((line=reader.readLine()) != null) {
-			char head = line.charAt(0);
-			if(head == '=') {
-				res.makeConsensus();
-				break;
+			if(!line.isEmpty()){
+				char head = line.charAt(0);
+				if(head == '=') {
+					res.makeConsensus();
+					break;
+				}
+				else if(head == '>')
+					res.startNewSequence(line);
+				else
+					res.addLine(line.trim());
 			}
-			else if(head == '>')
-				res.startNewSequence(line);
-			else
-				res.addLine(line.trim());
 		}
 		return res;
 	}
