@@ -28,7 +28,7 @@ public class LCB {
 //	public static char[] REVTABLE = {'-', 'A', 'C', 'M', 'G', 'R', 'S', 'V', 'T', 'W', 'Y', 'H', 'K', 'D', 'B', 'N'};
 
 	
-	public static int[] FACTOR = {0, 3, 3, 2, 3, 2, 2, 1, 3, 2, 2, 1, 2, 1, 1, 0};
+	public static int[] FACTOR = {0, 4, 4, 3, 4, 3, 3, 2, 4, 3, 3, 2, 3, 2, 2, 1};
 	public static char[] UNAMB = {BASE_GAP, BASE_A, BASE_C, BASE_G, BASE_T};
 	public static int UNAMB_LEN = 5;
 	
