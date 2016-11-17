@@ -13,7 +13,7 @@ Software required for running pipeline for set of genomes
 ### Usage
 ```
 supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
-                [-c CONSENSUS_F] [-u] [-m] [-o ORDER]
+                [-c CONSENSUS_F] [-m] [-o ORDER]
                 [-t {consensus,resolve,realign,xmfa,maf,map,merge,separate}]
                 [-i COORD_F] [-l LCB_LENGTH] 
 
@@ -26,7 +26,6 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
                         file prefix and sequence header for consensus FASTA /XFMA file
   -c CONSENSUS_F, --consensus CONSENSUS_F
                         consensus FASTA file used in XMFA
-  -u, --unambiguous     Do not use ambigiuous IUPAC code in consensus (random choice instead).
   -m, --merge           Merge small blocks to previous or next block in resolve-step.
   -o ORDER, --order ORDER
                         ordering of output (0,1,2,...) [default: 0]
