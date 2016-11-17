@@ -66,7 +66,7 @@ def main():
                         writer.writeXMFA(merged, args.output_p, args.output_name + "_merge", args.order)
                 if args.task == "consensus":
                     
-                    writer.writeConsensus(align, args.unambiguous, args.output_p, args.output_name, args.order)
+                    writer.writeConsensus(align, args.output_p, args.output_name, args.order)
                     
                 elif args.task == "separate":
                     if args.lcb_length > 0:
@@ -92,17 +92,13 @@ def main():
                         
                         newGenomeNr = (1 if consensusGenomeNr == 2 else 2)
                         
-                        #pdb.set_trace()
                         resolveblocks_align = resolver.resolveMultiAlignment(align, consensus, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
-                        #writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_resolvestep", args.order)
                         
                         if args.merge:
                             res_merge = merger.mergeLCBs(resolveblocks_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr, blockLength=args.lcb_length)
                             res_merge = merger.mergeLCBs(res_merge, consensusGenomeNr=newGenomeNr, newGenomeNr=consensusGenomeNr, blockLength=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
                             resolveblocks_align = realigner.realign(res_merge)
-
-                            #writer.writeXMFA(resolveblocks_align, args.output_p, args.output_name+"_mergestep", args.order)    
                             
                         reconstruct_align = resolver.reconstructAlignment(resolveblocks_align, consensus, org_align, consensusGenomeNr=consensusGenomeNr, newGenomeNr=newGenomeNr)
                             
@@ -132,7 +128,6 @@ if __name__ == '__main__':
     parser.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
     parser.add_argument("-n", "--name", dest="output_name", help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
-    parser.add_argument("-u", "--unambiguous", dest="unambiguous", help="Do not use ambigiuous IUPAC code in consensus (random choice instead).", action='store_true')
     parser.add_argument("-m", "--merge", dest="merge", help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
     parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf) [default: %(default)s]", choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate"], required=False)

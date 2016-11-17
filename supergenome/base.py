@@ -52,11 +52,11 @@ class Alignment:
         self.LCBs.append(lcb)
         
         
-    def getConsensus(self, unambiguous, order=0):
+    def getConsensus(self, order=0):
         sortedLCBs = self.getSortedLCBs(order)    
         delim = BLOCK_DELIMITER
         
-        consensusseqs = [lcb.consensusSequence(unambiguous) for lcb in sortedLCBs]
+        consensusseqs = [lcb.consensusSequence() for lcb in sortedLCBs]
         
         #store beginning of each block calculated using lengths of joined LCBs
         lcblengths = [lcb.length for lcb in sortedLCBs]
@@ -107,36 +107,32 @@ class Alignment:
     
         
 class LCB:
-    
+    _a = 1
+    _c = 2
+    _g = 3
+    _t = 4
+    _gap = 0
+    _rev_table = ("-", "A", "C", "G", "T")
     _iupac_dict = {
-            "A": "A",
-            "C": "C",
-            "G": "G",
-            "T": "T",
-            "B": "CGT",
-            "D": "AGT",
-            "H": "ACT",
-            "K": "GT",
-            "M": "AC",
-            "R": "AG",
-            "S": "CG",
-            "V": "ACG",
-            "W": "AT",
-            "Y": "CT",
-            "AC": "M",
-            "AG": "R",
-            "AT": "W",
-            "CG": "S",
-            "CT": "Y",
-            "GT": "K",
-            "ACG": "V",
-            "ACT": "H",
-            "AGT": "D",
-            "CGT": "B",
-            "ACGT": "N",
-            "-": "-",
-            "N": "ACGT"
+            "A": {"value" : 4, "pos" : [_a]},
+            "C": {"value" : 4, "pos" : [_c]},
+            "G": {"value" : 4, "pos" : [_g]},
+            "T": {"value" : 4, "pos" : [_t]},
+            "B": {"value" : 2, "pos" : [_c,_g,_t]},
+            "D": {"value" : 2, "pos" : [_a,_g,_t]},
+            "H": {"value" : 2, "pos" : [_a,_c,_t]},
+            "K": {"value" : 3, "pos" : [_g,_t]},
+            "M": {"value" : 3, "pos" : [_a,_c]},
+            "R": {"value" : 3, "pos" : [_a,_g]},
+            "S": {"value" : 3, "pos" : [_c,_g]},
+            "V": {"value" : 2, "pos" : [_a,_c,_g]},
+            "W": {"value" : 3, "pos" : [_a,_t]},
+            "Y": {"value" : 3, "pos" : [_c,_t]},
+            "-": {"value" : 0, "pos" : [_gap]},
+            "N": {"value" : 1, "pos" : [_a,_c,_g,_t]}
         }
+        
+    
     
     
     def __init__(self, number=0):
@@ -178,14 +174,10 @@ class LCB:
             e.reverseComplement()
         
         
-    def consensusSequence(self, unambiguous):
+    def consensusSequence(self):
         if len(self.entries) > 0:
-            if unambiguous:
-                repl_method = self._random
-            else:
-                repl_method = self._IUPAC
-                                
-            consseq = ''.join([ repl_method((lambda i=i: [e.sequence[i] for e in self.entries])()) 
+                               
+            consseq = ''.join([ self._majority((lambda i=i: [e.sequence[i] for e in self.entries])()) 
                                 for i in range(len(self.entries[0].sequence))
                             ])  # get i'th letter in sequence of each entry of LCB   
             return consseq
@@ -193,41 +185,43 @@ class LCB:
             return ""
     
         
-    def _IUPAC(self, bases):
+    def _majority(self, bases):
         # steps:
         # convert characters into unambiguous code (A,C,G,T)
-        # remove duplicates from list
-        # sort list
-        # remove gap character
-        # convert list of bases to one ambiguous character (A,C,G,T,M,R,W,S,Y,K,V,H,D,B,N)
-        # return character 
+        # add factor of current character to all positions of unambigious bases
+        # 
+        # get max position
+        # if max is gap and other value greater than zero take that base
+        # if value is same as current max change base based on random desicion
+        cur_arr = [0, 0, 0, 0, 0]
         try:
-            c = ''.join(sorted(list(set(''.join([ self._iupac_dict[x.upper()] for x in bases]))))).replace("-", "")
+            for base in bases:
+                baseinf = self._iupac_dict[base.upper()]
+                for pos in baseinf["pos"]:
+                    cur_arr[pos] += baseinf["value"]
         except KeyError as e:
             raise ConsensusFastaInputError(e.args[0])
         else:
-            try:
-                return self._iupac_dict[c]
-            except KeyError as e:
-                raise ConsensusFastaInputError(e.args[0])
-
-    
-    def _random(self, bases):
-        bases = ''.join(bases).replace("-", "").upper()
-        bases = bases.replace('N', "")
-        if len(bases) == 0:
-            return "N"
-        else:
-            random_choice = bases[random.randint(0,len(bases)-1)].upper()
-            if not (random_choice in ('A', 'C', 'G', 'T')):
-                try:
-                    unambiguous_random = self._iupac_dict[random_choice]
-                except KeyError as e:
-                    raise ConsensusFastaInputError(e.args[0])
-                else:
-                    return unambiguous_random[random.randint(0, len(unambiguous_random)-1)]
+            max_val = 0
+            max_idx = 0
+            equal = 0
+            for i in range(len(cur_arr)):
+                cur_val = cur_arr[i]
+                
+                if cur_val > max_val or (cur_val > 0 and max_idx == 0):
+                    max_val = cur_val
+                    max_idx = i
+                    equal = 0
+                elif cur_val == max_val:
+                    equal += 1
+                    if random.choice([True, False]):
+                       max_idx = i 
+                       
+            if max_val == 0 or equal == (len(cur_arr) - 2):
+                return "N"
             else:
-                return random_choice
+                return self._rev_table[max_idx]
+                
     
 class SequenceEntry:
     
@@ -314,11 +308,11 @@ class Consensus:
         self.fastaFile = os.path.abspath(fastaFile)
      
     
-    def fromAlignment(self, alignment, order, fastaFile, unambiguous):
+    def fromAlignment(self, alignment, order, fastaFile):
         self.order = int(order)
         self.xmfaFile = alignment.xmfaFile
         self.fastaFile = os.path.abspath(fastaFile)
-        self.sequence, self.blockStartIndices = alignment.getConsensus(unambiguous, order)
+        self.sequence, self.blockStartIndices = alignment.getConsensus(order)
         
         
     def getFastaHeader(self, name):
