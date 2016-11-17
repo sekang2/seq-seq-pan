@@ -27,8 +27,9 @@ class Splitter:
             print("Splitting LCB by chromosomes: " + str(lcb.number) + " ")
             print(split_coords)
             print("\n")
-            split_coords = split_coords + [lcb.length]
             split_coords = [c - 1 for c in split_coords]
+            split_coords = split_coords + [lcb.length]
+            
             
             # create new lcbs with split coords and return them
             lcbs = [LCB() for _ in range(len(split_coords)-1)]

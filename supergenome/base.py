@@ -288,7 +288,7 @@ class SequenceEntry:
         
         for start, end in sorted(self.gaps.items()):
             newNrOfNonGaps = curNrOfNonGaps + (start - posWithinBlock)
-            if newNrOfNonGaps > posWithinBlockWithoutGaps:
+            if newNrOfNonGaps >= posWithinBlockWithoutGaps:
                 break
             else:
                 posWithinBlock = end
