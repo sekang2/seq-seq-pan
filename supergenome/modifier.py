@@ -1,5 +1,6 @@
 import re
 import collections
+import sys
 
 from Bio import pairwise2
 
@@ -230,3 +231,77 @@ class Realigner:
                     index_offset += ((seqEnd - seqStart) - minlength)
 
         return (seqOne, seqTwo)
+
+        
+class Remover:
+    
+    def __init__(self):
+        pass
+    
+    def remove(self, alignment, rm_genome):
+        if rm_genome <= len(alignment.genomes) and rm_genome > -1:
+            
+            for lcb in alignment.LCBs:
+                for i in range(0,lcb.length,80):
+                    for entry in lcb.entries:
+                        if entry.genomeNr != rm_genome:
+                            print(entry.sequence[i:i+80])
+                       
+                    print("\n")
+            
+            
+                entries = [entry for entry in lcb.entries if entry.genomeNr != rm_genome]
+                if len(entries) > 0:
+                
+                    all_gaps = sum([list(range(k,entry.gaps[k])) for entry in entries for k in entry.gaps], [])
+                
+                    gap_counts = collections.Counter(all_gaps)
+                
+                    rm_gaps = sorted([k for k,v in gap_counts.items() if v == len(alignment.genomes)-1])
+                    if len(rm_gaps) > 0:
+                        if rm_gaps[0] != 0:
+                            rm_gaps = [-1] + rm_gaps
+                    
+                        if rm_gaps[-1] != lcb.length:
+                            rm_gaps = rm_gaps + [lcb.length]
+                    
+                    
+                    
+                        for entry in entries:
+                            entry.sequence = ''.join([entry.sequence[(rm_gaps[i]+1):rm_gaps[i+1]] for i in range(len(rm_gaps)-1)])
+                            if entry.genomeNr > rm_genome:
+                                entry.genomeNr -= 1
+                    # if no gaps found only reduce genome nr (avoid looping through entries twice if gaps present)            
+                    else:
+                        for entry in entries:
+                            if entry.genomeNr > rm_genome:
+                                entry.genomeNr -= 1
+                    
+                        ## test output
+                    print(str(lcb.number))
+                   
+                    for i in range(0,lcb.length,80):
+                        for entry in entries:
+                            sys.stderr.write(entry.sequence[i:i+80] + "\n")
+                   
+                        sys.stderr.write("\n")
+                    
+                    
+                    print("\n\n\n")
+                    sys.stderr.write("\n\n\n")                   
+                   
+                lcb.entries[:] = entries
+                
+                
+    
+            alignment.LCBs[:] = [lcb for lcb in alignment.LCBs if len(lcb.entries) > 0]
+            
+            max_genome = len(alignment.genomes)
+            for nr in range(rm_genome+1, max_genome+1):
+                alignment.genomes[nr-1] = alignment.genomes[nr]
+            del alignment.genomes[max_genome]
+            
+            return alignment
+            
+        else:
+            raise ParameterError("remove_genome", rm_genome, "between 0 and " + str(len(alignment.genomes)) + " (number of genomes in XMFA)")

@@ -5,7 +5,7 @@ import sys
 import pdb
 
 from supergenome.io import Parser, Writer
-from supergenome.modifier import Realigner, Merger, Separator
+from supergenome.modifier import Realigner, Merger, Separator, Remover
 from supergenome.resolver import Resolver
 from supergenome.exception import *
 from supergenome.mapper import Mapper
@@ -20,6 +20,7 @@ def main():
     mapper = Mapper()
     merger = Merger()
     separator = Separator() 
+    remover = Remover()
 
     if args.task == "map":
         try:
@@ -49,6 +50,11 @@ def main():
             print(e.message + "(" + args.xmfa_f + ")")
         else:
             try:
+                if args.task == "remove":
+                    remove = remover.remove(align, args.rm_genome)
+                
+                    writer.writeXMFA(remove, args.output_p, args.output_name + "_removed", args.order)
+                
                 if args.task == "realign":
                     try: 
                         realign = realigner.realign(align)
@@ -130,9 +136,10 @@ if __name__ == '__main__':
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA", required=False)
     parser.add_argument("-m", "--merge", dest="merge", help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0, help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf) [default: %(default)s]", choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate"], required=False)
+    parser.add_argument("-t", "--task", dest="task", default="consensus", help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove) [default: %(default)s]", choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate", "remove"], required=False)
     parser.add_argument("-i", "--index", dest="coord_f", help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line. Coordinates are 1-based!")
     parser.add_argument("-l", "--length", dest="lcb_length", type=int, help="Shorter LCBs will be separated to form genome specific entries.", required=False, default=10)
+    parser.add_argument("-r", "--removegenome", dest="rm_genome", type=int, help="Number of genome to remove (as shown in XMFA header)", required=False)
     
     args = parser.parse_args()
     
@@ -149,5 +156,8 @@ if __name__ == '__main__':
     else:
         if args.xmfa_f is None:
             parser.error("Please provide the following arguments: -x/--xmfa")
-    
+
+    if args.task == "remove" and args.rm_genome is None:
+        parser.error("Please provide the number of the genome to be removed.")
+            
     main()
