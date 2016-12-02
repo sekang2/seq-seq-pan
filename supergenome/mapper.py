@@ -1,118 +1,114 @@
 import bisect
 from collections import defaultdict
-import pdb
-    
-class Mapper:
-    
-    def mapCoordinates(self, alignment, consensus, source, dests, coordinates):
-        
-        print("len(coordinates):" + str(len(coordinates)))
-        
-        if type(dests) is not list:
-            dests = [dests]
 
-        dests = sorted(dests)
+from supergenome.exception import CoordinateOutOfBoundsError
+
+
+class Mapper:
+    def map_coordinates(self, alignment, consensus, source, destinations, coordinates):
+
+        print("len(coordinates):" + str(len(coordinates)))
+
+        if type(destinations) is not list:
+            destinations = [destinations]
+
+        destinations = sorted(destinations)
         coordinates = sorted(coordinates)
         coord_dict = defaultdict(dict)
-        
-        addC = ("c" in dests)
-        
+
+        add_consensus = ("c" in destinations)
+
         # store and do not reorder!
-        lcbs = alignment.LCBs
-        
-        # remove consensus-dest from list (calculation is different)
-        if addC:
-            dests = sorted(dests)[:-1]
-        
+        lcbs = alignment.lcbs
+
+        # remove consensus-destination from list (calculation is different)
+        if add_consensus:
+            destinations = sorted(destinations)[:-1]
+
         if source == "c":
             i = 0
             for coord in coordinates:
-                if i%1000 == 0:
+                if i % 1000 == 0:
                     print(i)
-                idx = bisect.bisect_left(consensus.blockStartIndices, coord) 
+                idx = bisect.bisect_left(consensus.block_start_indices, coord)
                 idx -= 1
                 lcb = lcbs[idx]
-                
+
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
-                posWithinBlock = coord - consensus.blockStartIndices[idx] - 1
-                
-                if addC:
+                pos_within_block = coord - consensus.block_start_indices[idx] - 1
+
+                if add_consensus:
                     coord_dict[coord]["c"] = coord
-                
-                coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
-                i = i+1            
+
+                coord_dict[coord].update(self._get_coords_for_entries(lcb.entries, destinations, pos_within_block))
+                i += 1
         else:
-            
-            sourceBlocks = {}
+
+            source_blocks = {}
             # store ends of blocks for finding lcb for coords
-            
+
             for i in range(len(lcbs)):
-                e = lcbs[i].getEntry(int(source))
+                e = lcbs[i].get_entry(int(source))
                 if e is not None:
-                    sourceBlocks[e.end] = {"lcb":i, "entry":e }
-            
+                    source_blocks[e.end] = {"lcb": i, "entry": e}
+
             for coord in coordinates:
-                sourceEnds = sorted(sourceBlocks.keys())
-                idxInEnds = bisect.bisect_left(sourceEnds, coord)
-                lcbIdx = sourceBlocks[sourceEnds[idxInEnds]]["lcb"]
-                
-                if lcbIdx > len(lcbs):
+                source_ends = sorted(source_blocks.keys())
+                idx_in_ends = bisect.bisect_left(source_ends, coord)
+                lcb_idx = source_blocks[source_ends[idx_in_ends]]["lcb"]
+
+                if lcb_idx > len(lcbs):
                     raise CoordinateOutOfBoundsError(coord, source)
-    
-                sourceEntry = sourceBlocks[sourceEnds[idxInEnds]]["entry"]
-                lcb = lcbs[lcbIdx]
-                
-                if sourceEntry.strand == "+":
-                    posWithinBlockWithoutGaps = coord - sourceEntry.start
+
+                source_entry = source_blocks[source_ends[idx_in_ends]]["entry"]
+                lcb = lcbs[lcb_idx]
+
+                if source_entry.strand == "+":
+                    pos_within_block_without_gaps = coord - source_entry.start
                 else:
-                    posWithinBlockWithoutGaps = sourceEntry.end - coord
-            
+                    pos_within_block_without_gaps = source_entry.end - coord
+
                 # add consensus coordinates to dict
-                if addC:
-                    consLength = sum([lcb.length for lcb in lcbs[0:lcbIdx]])
-                    coord_dict[coord]["c"] = consLength + posWithinBlockWithoutGaps + 1
-                    
+                if add_consensus:
+                    consensus_length = sum([lcb.length for lcb in lcbs[0:lcb_idx]])
+                    coord_dict[coord]["c"] = consensus_length + pos_within_block_without_gaps + 1
+
                 # check if dests other than consensus are needed
-                if len(dests) > 0:
-                
-                    posWithinBlock = sourceEntry.getPositionWithinEntryWithGaps(posWithinBlockWithoutGaps)
-                    
-                    coord_dict[coord].update(self._getCoordsForEntries(lcb.entries, dests, posWithinBlock))
-            
+                if len(destinations) > 0:
+                    pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps)
+
+                    coord_dict[coord].update(self._get_coords_for_entries(lcb.entries, destinations, pos_within_block))
 
         return coord_dict
-        
-        
-    def _getCoordsForEntries(self, entries, dests, posWithinBlock):
+
+    def _get_coords_for_entries(self, entries, destinations, pos_within_block):
         coord_dict = {}
-        
-        for e in entries: # faster than looping through entries everytime to get entry of genome x
-            if str(e.genomeNr) in dests: 
-            
-                isGap = False
-            
-                if e.strand == "+":
-                    eSubgaps = e.getSubGapList(0,posWithinBlock)
-                    eSumgaps = 0
-                    
-                    if len(eSubgaps) > 0:
-                        eSumgaps = sum(end-start for start, end in eSubgaps.items())
-                        lastGap = sorted(eSubgaps.items())[-1]
-                        isGap = (lastGap[0] <= posWithinBlock and posWithinBlock < lastGap[1])
-                    
-                    if not isGap:
-                        coord_dict[str(e.genomeNr)] = e.start + (posWithinBlock - eSumgaps)
-                else:
-                    eSubgaps = e.getSubGapList(e.end - posWithinBlock, e.end)
-                    eSumgaps = 0
-                    if len(eSubgaps) > 0:
-                        eSumgaps = sum(end-start for start, end in eSubgaps.items())
-                        lastGap = sorted(eSubgaps.items())[-1]
-                        isGap = (lastGap[0] <= posWithinBlock and posWithinBlock < lastGap[1])
-                    
-                    if not isGap:
-                        coord_dict[str(e.genomeNr)] = (e.end - (posWithinBlock - eSumgaps)) * -1
-        
-        return coord_dict
 
-        
+        for e in entries:  # faster than looping through entries everytime to get entry of genome x
+            if str(e.genome_nr) in destinations:
+
+                is_gap = False
+
+                if e.strand == "+":
+                    e_gap_sublist = e.get_gap_sublist(0, pos_within_block)
+                    e_sum_gaps = 0
+
+                    if len(e_gap_sublist) > 0:
+                        e_sum_gaps = sum(end - start for start, end in e_gap_sublist.items())
+                        last_gap = sorted(e_gap_sublist.items())[-1]
+                        is_gap = (last_gap[0] <= pos_within_block < last_gap[1])
+
+                    if not is_gap:
+                        coord_dict[str(e.genome_nr)] = e.start + (pos_within_block - e_sum_gaps)
+                else:
+                    e_gap_sublist = e.get_gap_sublist(e.end - pos_within_block, e.end)
+                    e_sum_gaps = 0
+                    if len(e_gap_sublist) > 0:
+                        e_sum_gaps = sum(end - start for start, end in e_gap_sublist.items())
+                        last_gap = sorted(e_gap_sublist.items())[-1]
+                        is_gap = (last_gap[0] <= pos_within_block < last_gap[1])
+
+                    if not is_gap:
+                        coord_dict[str(e.genome_nr)] = (e.end - (pos_within_block - e_sum_gaps)) * -1
+
+        return coord_dict

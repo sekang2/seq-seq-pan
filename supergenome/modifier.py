@@ -1,307 +1,295 @@
-import re
 import collections
-import sys
 
 from Bio import pairwise2
-
 
 from supergenome.exception import ConsensusXMFAInputError
 from supergenome.base import *
 
+
 class Separator:
-    
-    def separateLCBs(self, alignment, length):
-        separated = Alignment(alignment.xmfaFile)
+    def separate_lcbs(self, alignment, length):
+        separated = Alignment(alignment.xmfa_file)
         for nr, genome in alignment.genomes.items():
-            separated.addGenome(genome, nr)
-        
-        for lcb in alignment.LCBs:
+            separated.add_genome(genome, nr)
+
+        for lcb in alignment.lcbs:
             if lcb.length <= length:
                 for entry in lcb.entries:
-                    seq = entry.sequence.replace("-", "") 
-                    newEntry = SequenceEntry(entry.genomeNr, entry.start, entry.end, entry.strand, seq)
-                    separated.addLCBEntries(newEntry)
+                    seq = entry.sequence.replace("-", "")
+                    new_entry = SequenceEntry(entry.genome_nr, entry.start, entry.end, entry.strand, seq)
+                    separated.add_lcb_entries(new_entry)
             else:
-                separated.addLCB(lcb)
-                
+                separated.add_lcb(lcb)
+
         return separated
 
-class Merger:
 
-    def mergeLCBs(self, alignment, consensusGenomeNr, newGenomeNr, blockLength):
-        
+class Merger:
+    def merge_lcbs(self, alignment, consensus_genome_nr, new_genome_nr, block_length):
+
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
-            
-        lcbs = alignment.getSortedLCBs(newGenomeNr)
-       
+
+        lcbs = alignment.get_sorted_lcbs(new_genome_nr)
+
         # do not create small (less bp than blocklength) LCBs by splitting, but append/prepend sequence         
-        mergedSplitLCBs = []
-        
+        merged_split_lcbs = []
+
         for i in range(len(lcbs)):
-            
+
             lcb = lcbs[i]
-            newEntry = lcb.getEntry(newGenomeNr)
-            consensusEntry = lcb.getEntry(consensusGenomeNr)
+            new_entry = lcb.get_entry(new_genome_nr)
+            consensus_entry = lcb.get_entry(consensus_genome_nr)
             prepend = False
             append = False
-            revcompl = False
-            
-            neighbourNewEntry = None
-            neighbourConsensusEntry = None
-            
+            to_reverse_complement = False
+
+            neighbour_new_entry = None
+
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
-            if consensusEntry is None and newEntry is not None and len(newEntry.sequence) <= blockLength:
-                
-                nrGaps = len(newEntry.sequence)
-                
+            if consensus_entry is None and new_entry is not None and len(new_entry.sequence) <= block_length:
+
+                nr_gaps = len(new_entry.sequence)
+
                 # try to append to previous entry
                 if i > 0:
-                    neighbourLCB = mergedSplitLCBs[-1]
-                    neighbourNewEntry = neighbourLCB.getEntry(newGenomeNr)
-                    if neighbourNewEntry is not None and (newEntry.start - neighbourNewEntry.end) == 1:
-                        
-                        if newEntry.strand == neighbourNewEntry.strand:
+                    neighbour_lcb = merged_split_lcbs[-1]
+                    neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
+                    if neighbour_new_entry is not None and (new_entry.start - neighbour_new_entry.end) == 1:
+
+                        if new_entry.strand == neighbour_new_entry.strand:
                             append = True
                         else:
                             prepend = True
-                            revcompl = True
-                        
+                            to_reverse_complement = True
+
                 # previous entry did not work, try to prepend to next entry
-                if not(prepend) and not(append) and len(lcbs) > i:
-                    neighbourLCB = lcbs[i+1]
-                    neighbourNewEntry = neighbourLCB.getEntry(newGenomeNr)
-                    if neighbourNewEntry is not None and (neighbourNewEntry.start - newEntry.end) == 1:
-                        
-                        if newEntry.strand == neighbourNewEntry.strand:
+                if not prepend and not append and len(lcbs) > i:
+                    neighbour_lcb = lcbs[i + 1]
+                    neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
+                    if neighbour_new_entry is not None and (neighbour_new_entry.start - new_entry.end) == 1:
+
+                        if new_entry.strand == neighbour_new_entry.strand:
                             prepend = True
                         else:
                             append = True
-                            revcompl = True
-                        
-                        
+                            to_reverse_complement = True
+
             if append or prepend:
-            
-                if revcompl:
-                    newEntry.reverseComplement()
-            
-                sequence = neighbourNewEntry.sequence
-                neighbourConsensusEntry = neighbourLCB.getEntry(consensusGenomeNr)
-                neighbourLCB.length += nrGaps
-            
-                neighbourNewEntry.end = max(newEntry.end, neighbourNewEntry.end)
-                neighbourNewEntry.start = min(newEntry.start, neighbourNewEntry.start)
-            
+
+                if to_reverse_complement:
+                    new_entry.reverse_complement()
+
+                sequence = neighbour_new_entry.sequence
+                neighbour_consensus_entry = neighbour_lcb.get_entry(consensus_genome_nr)
+                neighbour_lcb.length += nr_gaps
+
+                neighbour_new_entry.end = max(new_entry.end, neighbour_new_entry.end)
+                neighbour_new_entry.start = min(new_entry.start, neighbour_new_entry.start)
+
                 if append:
-                    
-                    neighbourNewEntry.sequence = sequence + newEntry.sequence
-                    
-                    if neighbourConsensusEntry is not None:
-                        neighbourConsensusEntry.sequence += ("-"*nrGaps)
-                
+
+                    neighbour_new_entry.sequence = sequence + new_entry.sequence
+
+                    if neighbour_consensus_entry is not None:
+                        neighbour_consensus_entry.sequence += ("-" * nr_gaps)
+
                 elif prepend:
-                    
-                    neighbourNewEntry.sequence = newEntry.sequence + sequence
-                
-                    if neighbourConsensusEntry is not None:
-                        neighbourConsensusEntry.sequence = ("-"*nrGaps) + neighbourConsensusEntry.sequence
-                    
+
+                    neighbour_new_entry.sequence = new_entry.sequence + sequence
+
+                    if neighbour_consensus_entry is not None:
+                        neighbour_consensus_entry.sequence = ("-" * nr_gaps) + neighbour_consensus_entry.sequence
+
             # entry should not be merged or could be neither appended nor prepended 
             # add LCBs to alignment as it is
             else:
-                mergedSplitLCBs.append(lcb)
-                
+                merged_split_lcbs.append(lcb)
 
-        merged = Alignment(alignment.xmfaFile)
+        merged = Alignment(alignment.xmfa_file)
         for nr, genome in alignment.genomes.items():
-            merged.addGenome(genome, nr)
-        
-        for lcb in mergedSplitLCBs:
-            merged.addLCB(lcb)
-                
+            merged.add_genome(genome, nr)
+
+        for lcb in merged_split_lcbs:
+            merged.add_lcb(lcb)
+
         return merged
-      
+
 
 class Realigner:
+    _sub_matrix = {('A', 'A'): 5,
+                   ('C', 'C'): 5, ('C', 'A'): -4,
+                   ('G', 'G'): 5, ('G', 'A'): -4, ('G', 'C'): -4,
+                   ('T', 'T'): 5, ('T', 'A'): -4, ('T', 'C'): -4, ('T', 'G'): -4,
+                   ('M', 'M'): -1, ('M', 'A'): 1, ('M', 'C'): 1, ('M', 'G'): -4, ('M', 'T'): -4,
+                   ('R', 'R'): -1, ('R', 'A'): 1, ('R', 'C'): -4, ('R', 'G'): 1, ('R', 'T'): -4, ('R', 'M'): -2,
+                   ('W', 'W'): -1, ('W', 'A'): 1, ('W', 'C'): -4, ('W', 'G'): -4, ('W', 'T'): 1, ('W', 'M'): -2,
+                   ('W', 'R'): -2,
+                   ('S', 'S'): -1, ('S', 'A'): -4, ('S', 'C'): 1, ('S', 'G'): 1, ('S', 'T'): -4, ('S', 'M'): -2,
+                   ('S', 'R'): -2, ('S', 'W'): -4,
+                   ('Y', 'Y'): -1, ('Y', 'A'): -4, ('Y', 'C'): 1, ('Y', 'G'): -4, ('Y', 'T'): 1, ('Y', 'M'): -2,
+                   ('Y', 'R'): -4, ('Y', 'W'): -2, ('Y', 'S'): -2,
+                   ('K', 'K'): -1, ('K', 'A'): -4, ('K', 'C'): -4, ('K', 'G'): 1, ('K', 'T'): 1, ('K', 'M'): -4,
+                   ('K', 'R'): -2, ('K', 'W'): -2, ('K', 'S'): -2, ('K', 'Y'): -2,
+                   ('V', 'V'): -1, ('V', 'A'): -1, ('V', 'C'): -1, ('V', 'G'): -1, ('V', 'T'): -4, ('V', 'M'): -1,
+                   ('V', 'R'): -1, ('V', 'W'): -3, ('V', 'S'): -1, ('V', 'Y'): -3, ('V', 'K'): -3,
+                   ('H', 'H'): -1, ('H', 'A'): -1, ('H', 'C'): -1, ('H', 'G'): -4, ('H', 'T'): -1, ('H', 'M'): -1,
+                   ('H', 'R'): -3, ('H', 'W'): -1, ('H', 'S'): -3, ('H', 'Y'): -1, ('H', 'K'): -3, ('H', 'V'): -2,
+                   ('D', 'D'): -1, ('D', 'A'): -1, ('D', 'C'): -4, ('D', 'G'): -1, ('D', 'T'): -1, ('D', 'M'): -3,
+                   ('D', 'R'): -1, ('D', 'W'): -1, ('D', 'S'): -3, ('D', 'Y'): -3, ('D', 'K'): -1, ('D', 'V'): -2,
+                   ('D', 'H'): -2,
+                   ('B', 'B'): -1, ('B', 'A'): -4, ('B', 'C'): -1, ('B', 'G'): -1, ('B', 'T'): -1, ('B', 'M'): -3,
+                   ('B', 'R'): -3, ('B', 'W'): -3, ('B', 'S'): -1, ('B', 'Y'): -1, ('B', 'K'): -1, ('B', 'V'): -2,
+                   ('B', 'H'): -2, ('B', 'D'): -2,
+                   ('N', 'N'): -1, ('N', 'A'): -2, ('N', 'C'): -2, ('N', 'G'): -2, ('N', 'T'): -2, ('N', 'M'): -1,
+                   ('N', 'R'): -1, ('N', 'W'): -1, ('N', 'S'): -1, ('N', 'Y'): -1, ('N', 'K'): -1, ('N', 'V'): -1,
+                   ('N', 'H'): -1, ('N', 'D'): -1, ('N', 'B'): -1
+                   }
 
-    _sub_matrix = {  ('A', 'A'): 5,
-                     ('C', 'C'): 5, ('C', 'A'): -4,
-                     ('G', 'G'): 5, ('G', 'A'): -4, ('G', 'C'): -4,
-                     ('T', 'T'): 5, ('T', 'A'): -4, ('T', 'C'): -4, ('T', 'G'): -4,
-                     ('M', 'M'): -1, ('M', 'A'): 1, ('M', 'C'): 1, ('M', 'G'): -4, ('M', 'T'): -4,
-                     ('R', 'R'): -1, ('R', 'A'): 1, ('R', 'C'): -4, ('R', 'G'): 1, ('R', 'T'): -4, ('R', 'M'): -2, 
-                     ('W', 'W'): -1, ('W', 'A'): 1, ('W', 'C'): -4, ('W', 'G'): -4, ('W', 'T'): 1, ('W', 'M'): -2, ('W', 'R'): -2, 
-                     ('S', 'S'): -1, ('S', 'A'): -4, ('S', 'C'): 1, ('S', 'G'): 1, ('S', 'T'): -4, ('S', 'M'): -2, ('S', 'R'): -2, ('S', 'W'): -4, 
-                     ('Y', 'Y'): -1, ('Y', 'A'): -4, ('Y', 'C'): 1, ('Y', 'G'): -4, ('Y', 'T'): 1, ('Y', 'M'): -2, ('Y', 'R'): -4, ('Y', 'W'): -2, ('Y', 'S'): -2, 
-                     ('K', 'K'): -1, ('K', 'A'): -4, ('K', 'C'): -4, ('K', 'G'): 1, ('K', 'T'): 1, ('K', 'M'): -4, ('K', 'R'): -2, ('K', 'W'): -2, ('K', 'S'): -2, ('K', 'Y'): -2, 
-                     ('V', 'V'): -1, ('V', 'A'): -1, ('V', 'C'): -1, ('V', 'G'): -1, ('V', 'T'): -4, ('V', 'M'): -1, ('V', 'R'): -1, ('V', 'W'): -3, ('V', 'S'): -1, ('V', 'Y'): -3, ('V', 'K'): -3, 
-                     ('H', 'H'): -1, ('H', 'A'): -1, ('H', 'C'): -1, ('H', 'G'): -4, ('H', 'T'): -1, ('H', 'M'): -1, ('H', 'R'): -3, ('H', 'W'): -1, ('H', 'S'): -3, ('H', 'Y'): -1, ('H', 'K'): -3, ('H', 'V'): -2, 
-                     ('D', 'D'): -1, ('D', 'A'): -1, ('D', 'C'): -4, ('D', 'G'): -1, ('D', 'T'): -1, ('D', 'M'): -3, ('D', 'R'): -1, ('D', 'W'): -1, ('D', 'S'): -3, ('D', 'Y'): -3, ('D', 'K'): -1, ('D', 'V'): -2, ('D', 'H'): -2, 
-                     ('B', 'B'): -1, ('B', 'A'): -4, ('B', 'C'): -1, ('B', 'G'): -1, ('B', 'T'): -1, ('B', 'M'): -3, ('B', 'R'): -3, ('B', 'W'): -3, ('B', 'S'): -1, ('B', 'Y'): -1, ('B', 'K'): -1, ('B', 'V'): -2, ('B', 'H'): -2, ('B', 'D'): -2, 
-                     ('N', 'N'): -1, ('N', 'A'): -2, ('N', 'C'): -2, ('N', 'G'): -2, ('N', 'T'): -2, ('N', 'M'): -1, ('N', 'R'): -1, ('N', 'W'): -1, ('N', 'S'): -1, ('N', 'Y'): -1, ('N', 'K'): -1, ('N', 'V'): -1, ('N', 'H'): -1, ('N', 'D'): -1, ('N', 'B'): -1
-                    }
-                    
-    ## local realignment around overlapping or consecutive gaps in two sequences
+    # local realignment around overlapping or consecutive gaps in two sequences
     def realign(self, alignment):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
-        
-        realigned = Alignment(alignment.xmfaFile)
+
+        realigned = Alignment(alignment.xmfa_file)
         for nr, genome in alignment.genomes.items():
-            realigned.addGenome(genome, nr)
-        
-        
+            realigned.add_genome(genome, nr)
+
         # go through lcbs, skip one-entry ones
-        for lcb in alignment.getSortedLCBs(0):
+        for lcb in alignment.get_sorted_lcbs(0):
             if len(lcb.entries) == 1:
-                realigned.addLCB(lcb)
+                realigned.add_lcb(lcb)
             else:
-                entryOne = lcb.entries[0]
-                entryTwo = lcb.entries[1]
-                
+                entry_one = lcb.entries[0]
+                entry_two = lcb.entries[1]
+
                 # get regions to realign
-                oneFirstTwoSecond = self._getRealignRegions(entryOne.gaps, entryTwo.gaps)
-                
-                if len(oneFirstTwoSecond) > 0:
-                    seqOne, seqTwo = self._realign(entryOne.sequence, entryTwo.sequence, oneFirstTwoSecond)
-                    entryOne.sequence = seqOne
-                    entryTwo.sequence = seqTwo
-                
+                one_first_two_second = self._get_realign_regions(entry_one.gaps, entry_two.gaps)
+
+                if len(one_first_two_second) > 0:
+                    seq_one, seq_two = self._realign(entry_one.sequence, entry_two.sequence, one_first_two_second)
+                    entry_one.sequence = seq_one
+                    entry_two.sequence = seq_two
+
                 # get regions to realign for updated entries with second entry first
-                twoFirstOneSecond = self._getRealignRegions(entryTwo.gaps, entryOne.gaps)
-                
-                if len(twoFirstOneSecond) > 0:
-                    seqTwo, seqOne = self._realign(entryTwo.sequence, entryOne.sequence, twoFirstOneSecond)
-                    entryOne.sequence = seqOne
-                    entryTwo.sequence = seqTwo
-                
-                newlcb = LCB()
-                newlcb.addEntries([entryOne, entryTwo])
-                
-                realigned.addLCB(newlcb)
-                
+                two_first_one_second = self._get_realign_regions(entry_two.gaps, entry_one.gaps)
+
+                if len(two_first_one_second) > 0:
+                    seq_two, seq_one = self._realign(entry_two.sequence, entry_one.sequence, two_first_one_second)
+                    entry_one.sequence = seq_one
+                    entry_two.sequence = seq_two
+
+                new_lcb = LCB()
+                new_lcb.add_entries([entry_one, entry_two])
+
+                realigned.add_lcb(new_lcb)
+
         return realigned
-    
-    
-    def _getRealignRegions(self, gapsForStart, gapsForEnd):
-        endsDict = { end : start for start, end in gapsForEnd.items() }
-        locList = [start for start, end in gapsForStart.items()] + list(endsDict.keys())
-        
-        regionStarts = [item for item, count in collections.Counter(locList).items() if count > 1]
-        
+
+    def _get_realign_regions(self, gaps_for_start, gaps_for_end):
+        ends_dict = {end: start for start, end in gaps_for_end.items()}
+        location_list = [start for start, end in gaps_for_start.items()] + list(ends_dict.keys())
+
+        region_starts = [item for item, count in collections.Counter(location_list).items() if count > 1]
+
         regions = []
-        for start in regionStarts:
-            regions.append( [(start, gapsForStart[start]), (endsDict[start], start)])
-        
+        for start in region_starts:
+            regions.append([(start, gaps_for_start[start]), (ends_dict[start], start)])
+
         return regions
 
-    
-    def _realign(self, seqOne, seqTwo, realignRegions):
-    
-        realignRegions = sorted(realignRegions)
-    
+    def _realign(self, seq_one, seq_two, realign_regions):
+
+        realign_regions = sorted(realign_regions)
+
         index_offset = 0
-    
-        for interval in realignRegions:
-            minIndex, minSeqLength = min(enumerate( [interval[0][1] - interval[0][0], interval[1][1] - interval[1][0] ] ), key=lambda p: p[1])
-            
-            if minSeqLength < 10:
 
-                minSeqLength = minSeqLength*2
-            
-                seqStart = interval[minIndex][0] - index_offset - minSeqLength
-                seqEnd = interval[minIndex][1] - index_offset + minSeqLength
-                
+        for interval in realign_regions:
+            min_index, min_seq_length = min(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
+                                            key=lambda p: p[1])
+
+            if min_seq_length < 10:
+
+                min_seq_length *= 2
+
+                seq_start = interval[min_index][0] - index_offset - min_seq_length
+                seq_end = interval[min_index][1] - index_offset + min_seq_length
+
                 # do not go over boundaries of sequences!
-                seqStart = max(seqStart, 0)
-                minOrgSeqLength = min(len(seqOne), len(seqTwo)) - 1
-                seqEnd = min(seqEnd, minOrgSeqLength)
-                                
-                alignments = pairwise2.align.globalds(seqOne[seqStart:seqEnd].replace("-", "").upper() , seqTwo[seqStart:seqEnd].replace("-", "").upper(), self._sub_matrix, -0.5, -0.1, one_alignment_only=True)
-                if len(alignments) > 0:                                
-                    maxscore = max( [x[2] for x in alignments] )
-                    alignments = (lambda maxscore=maxscore: [item for item in alignments if item[2] == maxscore])()
-                
-                    minlength = min( [x[4] for x in alignments] )
-                    alignments = (lambda minlength=minlength: [item for item in alignments if item[4] == minlength])()
-                
-                    seqOne = alignments[0][0].join([ seqOne[:seqStart], seqOne[seqEnd:] ])
-                    seqTwo = alignments[0][1].join([ seqTwo[:seqStart], seqTwo[seqEnd:] ])
-                
-                    index_offset += ((seqEnd - seqStart) - minlength)
+                seq_start = max(seq_start, 0)
+                min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
+                seq_end = min(seq_end, min_orig_seq_length)
 
-        return (seqOne, seqTwo)
+                alignments = pairwise2.align.globalds(seq_one[seq_start:seq_end].replace("-", "").upper(),
+                                                      seq_two[seq_start:seq_end].replace("-", "").upper(),
+                                                      self._sub_matrix, -0.5, -0.1, one_alignment_only=True)
+                if len(alignments) > 0:
+                    max_score = max([x[2] for x in alignments])
+                    alignments = (lambda max_score=max_score: [item for item in alignments if item[2] == max_score])()
 
-        
+                    min_length = min([x[4] for x in alignments])
+                    alignments = (lambda min_length=min_length: [item for item in alignments if item[4] == min_length])()
+
+                    seq_one = alignments[0][0].join([seq_one[:seq_start], seq_one[seq_end:]])
+                    seq_two = alignments[0][1].join([seq_two[:seq_start], seq_two[seq_end:]])
+
+                    index_offset += ((seq_end - seq_start) - min_length)
+
+        return seq_one, seq_two
+
+
 class Remover:
-    
     def __init__(self):
         pass
-    
+
     def remove(self, alignment, rm_genome):
-        if rm_genome <= len(alignment.genomes) and rm_genome > -1:
-            
-            for lcb in alignment.LCBs:
-                for i in range(0,lcb.length,80):
+        if len(alignment.genomes) >= rm_genome > -1:
+
+            for lcb in alignment.lcbs:
+                for i in range(0, lcb.length, 80):
                     for entry in lcb.entries:
-                        if entry.genomeNr != rm_genome:
-                            print(entry.sequence[i:i+80])
-                       
+                        if entry.genome_nr != rm_genome:
+                            print(entry.sequence[i:i + 80])
+
                     print("\n")
-            
-            
-                entries = [entry for entry in lcb.entries if entry.genomeNr != rm_genome]
+
+                entries = [entry for entry in lcb.entries if entry.genome_nr != rm_genome]
                 if len(entries) > 0:
-                
-                    all_gaps = sum([list(range(k,entry.gaps[k])) for entry in entries for k in entry.gaps], [])
-                
+
+                    all_gaps = sum([list(range(k, entry.gaps[k])) for entry in entries for k in entry.gaps], [])
+
                     gap_counts = collections.Counter(all_gaps)
-                
-                    rm_gaps = sorted([k for k,v in gap_counts.items() if v == len(alignment.genomes)-1])
+
+                    rm_gaps = sorted([k for k, v in gap_counts.items() if v == len(alignment.genomes) - 1])
                     if len(rm_gaps) > 0:
                         if rm_gaps[0] != 0:
                             rm_gaps = [-1] + rm_gaps
-                    
+
                         if rm_gaps[-1] != lcb.length:
                             rm_gaps = rm_gaps + [lcb.length]
-                    
-                    
-                    
+
                         for entry in entries:
-                            entry.sequence = ''.join([entry.sequence[(rm_gaps[i]+1):rm_gaps[i+1]] for i in range(len(rm_gaps)-1)])
-                            if entry.genomeNr > rm_genome:
-                                entry.genomeNr -= 1
+                            entry.sequence = ''.join(
+                                [entry.sequence[(rm_gaps[i] + 1):rm_gaps[i + 1]] for i in range(len(rm_gaps) - 1)])
+                            if entry.genome_nr > rm_genome:
+                                entry.genome_nr -= 1
                     # if no gaps found only reduce genome nr (avoid looping through entries twice if gaps present)            
                     else:
                         for entry in entries:
-                            if entry.genomeNr > rm_genome:
-                                entry.genomeNr -= 1
-                    
-                        ## test output
-                    print(str(lcb.number))
-                   
-                    for i in range(0,lcb.length,80):
-                        for entry in entries:
-                            sys.stderr.write(entry.sequence[i:i+80] + "\n")
-                   
-                        sys.stderr.write("\n")
-                    
-                    
-                    print("\n\n\n")
-                    sys.stderr.write("\n\n\n")                   
-                   
+                            if entry.genome_nr > rm_genome:
+                                entry.genome_nr -= 1
+
                 lcb.entries[:] = entries
-                
-                
-    
-            alignment.LCBs[:] = [lcb for lcb in alignment.LCBs if len(lcb.entries) > 0]
-            
+
+            alignment.lcbs[:] = [lcb for lcb in alignment.lcbs if len(lcb.entries) > 0]
+
             max_genome = len(alignment.genomes)
-            for nr in range(rm_genome+1, max_genome+1):
-                alignment.genomes[nr-1] = alignment.genomes[nr]
+            for nr in range(rm_genome + 1, max_genome + 1):
+                alignment.genomes[nr - 1] = alignment.genomes[nr]
             del alignment.genomes[max_genome]
-            
+
             return alignment
-            
+
         else:
-            raise ParameterError("remove_genome", rm_genome, "between 0 and " + str(len(alignment.genomes)) + " (number of genomes in XMFA)")
+            raise ParameterError("remove_genome", rm_genome,
+                                 "between 0 and " + str(len(alignment.genomes)) + " (number of genomes in XMFA)")

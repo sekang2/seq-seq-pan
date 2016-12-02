@@ -162,3 +162,9 @@ rule maf:
     output: "{genome}.maf"
     shell:
         "{SCRIPT} -x {input} -p . -n {wildcards.genome} -t maf"
+
+rule split:
+    input: "add{genome}_resolve.xmfa"
+    output: "add{genome}_split.xmfa"
+    shell:
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t split"

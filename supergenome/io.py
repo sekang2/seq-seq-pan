@@ -9,367 +9,360 @@ from supergenome.exception import *
 from supergenome.base import *
 from supergenome.formatter import Splitter
 
+
 class Parser:
-    def parseXMFA(self, filename):
+    def parse_xmfa(self, filename):
         alignment = Alignment(filename)
-        
+
         with open(filename, "r") as xmfa:
             line = xmfa.readline()
-            seq = ""
-            seqparts = []
+            seq_parts = []
             start = 0
             end = 0
-            seqNr = 0
+            seq_nr = 0
             ses = []
             while line:
                 line = line.rstrip()
-                if line.startswith("#"): #parse comment section
-                    m = re.match("#Sequence(\d+)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                if line.startswith("#"):  # parse comment section
+                    # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                    m = re.match("#Sequence(\d+)File\s+(.+)", line)
                     if m is not None:
                         number = m.group(1)
                         fn = m.group(2)
                         entry = -1
                         line = xmfa.readline()
-                        m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
+                        # with multifasta files sequence - entry numbers are reported in line after filename
+                        m = re.match("#Sequence" + number + "Entry\s+(\d+)", line)
                         if m is not None:
                             entry = m.group(1)
                             line = xmfa.readline()
-                            
-                        m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
+
+                        m = re.match("#Sequence" + number + "Format\s+(\w+)", line)
                         if m is not None:
-                            format = m.group(1)
+                            file_format = m.group(1)
                             line = xmfa.readline()
-                        genome = Genome(fn, format, entry)
-                        alignment.addGenome(genome, number)
+                        genome = Genome(fn, file_format, entry)
+                        alignment.add_genome(genome, number)
                         continue
-                
-                elif line.startswith(">"): # a sequence start was encountered
-                    if len(seqparts) > 0 and int(end) > 0: # save previous sequence
-                        seq = "".join(seqparts)
-                        ses.append(SequenceEntry(seqNr, start, end, strand, seq))
-                        
-                    seqparts = []
+
+                elif line.startswith(">"):  # a sequence start was encountered
+                    if len(seq_parts) > 0 and int(end) > 0:  # save previous sequence
+                        seq = "".join(seq_parts)
+                        ses.append(SequenceEntry(seq_nr, start, end, strand, seq))
+
+                    seq_parts = []
                     m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
                     if m is not None:
-                        seqNr = m.group(1)
+                        seq_nr = m.group(1)
                         start = m.group(2)
                         end = m.group(3)
                         strand = m.group(4)
                     else:
                         raise XMFAHeaderFormatError(line.strip())
                 elif line.startswith("="):
-                    if len(seqparts) > 0 and int(end) > 0:
-                        seq = "".join(seqparts)
-                        ses.append(SequenceEntry(seqNr, start, end, strand, seq))
-                    
-                    alignment.addLCBEntries(ses)
-                    
-                    seqparts = []
+                    if len(seq_parts) > 0 and int(end) > 0:
+                        seq = "".join(seq_parts)
+                        ses.append(SequenceEntry(seq_nr, start, end, strand, seq))
+
+                    alignment.add_lcb_entries(ses)
+
+                    seq_parts = []
                     ses = []
                 else:
-                    seqparts.append(line)
-                    
+                    seq_parts.append(line)
+
                 line = xmfa.readline()
-                    
+
         return alignment
-    
-    
-    def _parseConsensus(self, filename):
+
+    def _parse_consensus(self, filename):
         try:
             record = SeqIO.read(open(filename), "fasta")
-        except ValueError as e:
+        except ValueError:
             raise ConsensusFastaError()
-        
+
         m = re.match("^[^;]+;(\d+)\|(.*)", record.id)
-        
+
         if m is not None:
             order = m.group(1)
-            xmfaFile = m.group(2)
+            xmfa_file = m.group(2)
         else:
             raise ConsensusFastaFormatError()
 
         try:
-            cons = Consensus(str(record.seq), order, xmfaFile, filename)
+            cons = Consensus(str(record.seq), order, xmfa_file, filename)
         except ParameterError:
             raise ConsensusFastaFormatError()
-            
-        return cons
-    
-    
-    def parseBlockSeparatedConsensus(self, filename):
-        consensus = self._parseConsensus(filename+".blockseparated.fasta")
-        consensus.blockStartIndices = self._parseConsensusSeparator(filename)
-        
-        return consensus
-    
-    
-    def _parseConsensusSeparator(self, filename):
-        with open(filename+".blockseparated.idx", "r") as input:
-            line = input.readline()
-            line = input.readline()
-            line = input.readline()
 
-            blockStartIndices = [int(idx) for idx in line.strip().split(";")]
-            
-        return blockStartIndices
-    
-    
-    def parseConsensusIndex(self, filename):
-        with open(filename+".idx", "r") as input:
-            line = input.readline()
+        return cons
+
+    def parse_block_separated_consensus(self, filename):
+        consensus = self._parse_consensus(filename + ".blockseparated.fasta")
+        consensus.block_start_indices = self._parse_consensus_separator(filename)
+
+        return consensus
+
+    def _parse_consensus_separator(self, filename):
+        with open(filename + ".blockseparated.idx", "r") as in_file:
+            # skip first two lines
+            line = in_file.readline()
+            line = in_file.readline()
+            line = in_file.readline()
+
+            block_start_indices = [int(idx) for idx in line.strip().split(";")]
+
+        return block_start_indices
+
+    def parse_consensus_index(self, filename):
+        with open(filename + ".idx", "r") as in_file:
+            line = in_file.readline()
             m = re.match("#Fasta\t(.+)", line)
             if m is not None:
-                fastaFile = m.group(1)
+                fasta_file = m.group(1)
             else:
                 raise ConsensusFastaIdxFormatError("Wrong format of Fasta header line.")
-            line = input.readline()
+            line = in_file.readline()
             m = re.match("#XMFA\t(.+)", line)
             if m is not None:
-                xmfaFile = m.group(1)
+                xmfa_file = m.group(1)
             else:
                 raise ConsensusFastaIdxFormatError("Wrong format of XMFA header line.")
-            
-            alignment = Alignment(xmfaFile)
-            
+
+            alignment = Alignment(xmfa_file)
+
             lcb = LCB()
-            lcbLength = 0
-            lcbEndsList = [0]
-            
-            line = input.readline()
+            lcb_length = 0
+            lcb_ends_list = [0]
+
+            line = in_file.readline()
             while line:
                 line = line.strip()
-                
+
                 if line.startswith("#"):
-                    m = re.match("#Sequence(\d+)File\s+(.+)", line) # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                    # each sequence has an associated file (can be the same for more sequences -> multifasta)
+                    m = re.match("#Sequence(\d+)File\s+(.+)", line)
                     if m is not None:
                         number = m.group(1)
                         fn = m.group(2)
                         entry = -1
-                        line = input.readline()
-                        m = re.match("#Sequence"+number+"Entry\s+(\d+)", line) # with multifasta files sequence - entry numbers are reported in line after filename
+                        line = in_file.readline()
+                        # with multifasta files sequence - entry numbers are reported in line after filename
+                        m = re.match("#Sequence" + number + "Entry\s+(\d+)", line)
                         if m is not None:
                             entry = m.group(1)
-                            line = input.readline()
-                            
-                        m = re.match("#Sequence"+number+"Format\s+(\w+)", line) 
+                            line = in_file.readline()
+
+                        m = re.match("#Sequence" + number + "Format\s+(\w+)", line)
                         if m is not None:
-                            format = m.group(1)
-                            line = input.readline()
-                        genome = Genome(fn, format, entry)
-                        alignment.addGenome(genome, number)
+                            file_format = m.group(1)
+                            line = in_file.readline()
+                        genome = Genome(fn, file_format, entry)
+                        alignment.add_genome(genome, number)
                         continue
-                
-                elif not line == "": 
-                    
+
+                elif not line == "":
+
                     fields = line.split("\t")
-                    id = fields[0]
+                    block_id = fields[0]
                     nr = int(fields[1])
                     start = int(fields[2])
                     end = int(fields[3])
                     strand = fields[4]
-                    if id == "b":
+                    if block_id == "b":
                         # add previous lcb with all entries
-                        if lcbLength > 0:
-                            lcb.length = lcbLength
-                            alignment.addLCB(lcb)
+                        if lcb_length > 0:
+                            lcb.length = lcb_length
+                            alignment.add_lcb(lcb)
                             lcb = LCB()
-                            
+
                         # store end of current lcb
-                        lcbLength = (end - start) + 1
-                        lcbEndsList.append(end)
-                    elif id == "s":
+                        lcb_length = (end - start) + 1
+                        lcb_ends_list.append(end)
+                    elif block_id == "s":
                         # add entry to current lcb
                         e = SequenceEntry(nr, start, end, strand, '')
-                        
+
                         if len(fields) == 6:
                             gaps = fields[5]
-                            gapDict = {}
+                            gap_dict = {}
                             for interval in gaps.split(";"):
                                 start, end = interval.split("-")
-                                gapDict[int(start)] =  int(end)
-                            e.gaps = gapDict
+                                gap_dict[int(start)] = int(end)
+                            e.gaps = gap_dict
                         lcb.entries.append(e)
                     else:
                         raise ConsensusFastaIdxFormatError("Lines can only start with 'b' or 's'.")
-                line = input.readline()
-                
+                line = in_file.readline()
+
             # add last LCB to alignment
-            if lcbLength > 0:
-                lcb.length = lcbLength
-                alignment.addLCB(lcb)
-            
-            consensus = Consensus( sequence="", order=0, xmfaFile=xmfaFile, fastaFile=fastaFile)
-            consensus.blockStartIndices = lcbEndsList
-                
-        return (alignment, consensus)
-        
-        
-    def parseMappingCoordinates(self, coord_f):
-        with open(coord_f) as input:
-            
-            header = input.readline().strip()
+            if lcb_length > 0:
+                lcb.length = lcb_length
+                alignment.add_lcb(lcb)
+
+            consensus = Consensus(sequence="", order=0, xmfa_file=xmfa_file, fasta_file=fasta_file)
+            consensus.block_start_indices = lcb_ends_list
+
+        return alignment, consensus
+
+    def parse_mapping_coordinates(self, coord_f):
+        with open(coord_f) as in_file:
+            header = in_file.readline().strip()
             source, dest = header.split("\t")
             dests = dest.split(",")
-            coords = [int(line.strip()) for line in input]
-            
+            coords = [int(line.strip()) for line in in_file]
+
             if source == "" or dests == "" or len(dests) == 0 or len(coords) == 0:
                 raise CoordinatesInputError()
-        
+
         return source, dests, coords
 
 
-        
-        
 class Writer:
-        _mauveFormatString = "#FormatVersion Mauve1\n"
-        _mauveGenomeFile = '#Sequence{0}File\t{1}\n'
-        _mauveGenomeEntry = '#Sequence{0}Entry\t{1}\n'
-        _mauveGenomeFormat = '#Sequence{0}Format\t{1}\n'
-        _mauveBlockHeader = '> {0}:{1}-{2} {3} {4}\n'
-        
-        _consensusIndexFasta = '#Fasta\t{0}\n'
-        _consensusIndexXmfa = '#XMFA\t{0}\n'
-        _consensusIndexBlockLine = '\nb\t{0}\t{1}\t{2}\t+\n'
-        _consensusIndexSequenceLine = 's\t{0}\t{1}\t{2}\t{3}\t{4}\n'
-        
-        _mafFormatString = "##maf version=1\n"
-        _mafSequenceHeader = "\na label={0}\n"
-        _mafEntryHeader = "s\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
-        
-        
-        def writeXMFA(self, alignment, path, name, order=0):
-            
-            if alignment.isInvalid():
-                print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: XMFA is invalid!\n!!!!!!!!!\n!!!!!!!\n")
-                    
-        
-            with open(path+"/"+name+".xmfa", "w") as output:
-                output.write(self._mauveFormatString)
-                               
-                for nr, genome in sorted(alignment.genomes.items()):
-                    output.write(self._mauveGenomeFile.format(nr, genome.filepath))
-                    if genome.entry > 0 :
-                        output.write(self._mauveGenomeEntry.format(nr, genome.entry))
-                    output.write(self._mauveGenomeFormat.format(nr, genome.format))
-                
-                sortedLCBs = alignment.getSortedLCBs(order)
-                count = 0
-                for lcb in sortedLCBs:
-                    count += 1
-                    for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
-                        output.write(self._mauveBlockHeader.format( entry.genomeNr, 
-                                                                   entry.start, 
-                                                                   entry.end, 
-                                                                   entry.strand, 
-                                                                   alignment.genomes[entry.genomeNr].filepath
-                                                                  )
-                                    )
-                        output.write("\n".join(re.findall(".{1,80}", entry.sequence))+"\n")
-                    output.write("=\n")
-        
-        
-        def writeMAF(self, alignment, path, name, order=0):
-            
-            if alignment.isInvalid():
-                print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: MAF is invalid!\n!!!!!!!!!\n!!!!!!!\n")
-            
-            with open(path+"/"+name+".maf", "w") as output:
-                output.write(self._mafFormatString)
-                
-                sortedLCBs = alignment.getSortedLCBs(order)
-                
-                splitter = Splitter(alignment)
-                splittedLCBs = []
-                for lcb in sortedLCBs:
-                    splittedLCBs.extend(splitter.splitByChromosomes(lcb))
-                
-                count = 0
-                for lcb in splittedLCBs:
-                    
-                    count += 1
-                    output.write(self._mafSequenceHeader.format(count))
-                    
-                    for entry in sorted(lcb.entries, key=lambda e: e.genomeNr):
-                        genome = alignment.genomes[entry.genomeNr]
-                        chrstarts = splitter.getChromosomesForEntry(entry)
-                        
-                        if len(chrstarts) != 1:
-                            raise Exception("Splitting by chromosomes went wrong.")
-                        
-                        chrstart = chrstarts[0]
-                        chr = genome.chromosomes[chrstart]
-                        
-                        start = entry.start - chrstart
-                        
-                        output.write(self._mafEntryHeader.format(chr["desc"].replace(" ", "_"), start, ((entry.end - entry.start)+1), entry.strand, chr["length"], entry.sequence))
-                    
-        
-        def writeMappingCoordinates(self, source, dests, coords_dict, path, name):
-            with open(os.path.abspath(path + "/"+ name + ".txt"), "w") as output:
-                output.write(''.join([str(source)," (source)", "\t"]))
-                output.write('\t'.join(dests))
-                output.write("\n")
-                
-                for coord, cur_dict in sorted(coords_dict.items()):
-                    output.write(str(coord) + "\t")
-                    new_coords = [str(cur_dict.get(dest,"-")) for dest in dests]
-                    output.write('\t'.join(new_coords))
-                    output.write("\n")
+    _mauve_format_string = "#FormatVersion Mauve1\n"
+    _mauve_genome_file = '#Sequence{0}File\t{1}\n'
+    _mauve_genome_entry = '#Sequence{0}Entry\t{1}\n'
+    _mauve_genome_format = '#Sequence{0}Format\t{1}\n'
+    _mauve_block_header = '> {0}:{1}-{2} {3} {4}\n'
 
-        
-        def writeConsensus(self, alignment, path, name, order=0):
-            filename = os.path.abspath(path+"/"+name+"_consensus.fasta")
-            
-            consensus = Consensus()
-            consensus.fromAlignment(alignment, order, filename)
-            
-            self._writeConsensusIndex(alignment, filename, order)
-            self._writeConsensusSeparator(consensus, alignment, filename, order)
-            header = consensus.getFastaHeader(name)
-            
-            record = SeqRecord(Seq(consensus.sequence), id=header, description='')
-            
-            with open(filename + ".blockseparated.fasta", "w") as handle:
-                SeqIO.write(record, handle, "fasta")
-            
-            record.seq = Seq(consensus.getUndelimitedSequence())
-            
-            with open(filename, "w") as handle:
-                SeqIO.write(record, handle, "fasta")
-            
-        
-        def _writeConsensusIndex(self, alignment, fastafile, order=0):
-            with open(fastafile+".idx", "w") as output:
-                output.write(self._consensusIndexFasta.format(fastafile))
-                output.write(self._consensusIndexXmfa.format(alignment.xmfaFile))
-                
-                for nr, genome in sorted(alignment.genomes.items()):
-                    output.write(self._mauveGenomeFile.format(nr, genome.filepath))
-                    if genome.entry > 0 :
-                        output.write(self._mauveGenomeEntry.format(nr, genome.entry))
-                    output.write(self._mauveGenomeFormat.format(nr, genome.format))
-                
-                sortedLCBs = alignment.getSortedLCBs(order)
-            
-                consensusEnd = 0
-                counter = 1
-            
-                for lcb in sortedLCBs:
-                    output.write(self._consensusIndexBlockLine.format(counter, consensusEnd+1, consensusEnd+lcb.length))
-                    consensusEnd += (lcb.length)
-                    
-                    counter += 1
-                    for entry in lcb.entries:
-                        output.write(self._consensusIndexSequenceLine.format
-                                            ( entry.genomeNr, entry.start, entry.end, entry.strand,
-                                              ';'.join(['-'.join( [str(start), str(end)]) for start, end in sorted(entry.gaps.items()) ])
-                                            )
-                                    )
-        
-        
-        def _writeConsensusSeparator(self, consensus, alignment, fastafile, order):
-            with open(fastafile+".blockseparated.idx", "w") as output:
-                output.write(self._consensusIndexFasta.format(fastafile))
-                output.write(self._consensusIndexXmfa.format(alignment.xmfaFile))
-                output.write(';'.join([str(idx) for idx in consensus.blockStartIndices]))
-                
+    _consensus_index_fasta = '#Fasta\t{0}\n'
+    _consensus_index_xmfa = '#XMFA\t{0}\n'
+    _consensus_index_block_line = '\nb\t{0}\t{1}\t{2}\t+\n'
+    _consensus_index_sequence_line = 's\t{0}\t{1}\t{2}\t{3}\t{4}\n'
+
+    _maf_format_string = "##maf version=1\n"
+    _maf_sequence_header = "\na label={0}\n"
+    _maf_entry_header = "s\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
+
+    def write_xmfa(self, alignment, path, name, order=0):
+
+        if alignment.is_invalid():
+            print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: XMFA is invalid!\n!!!!!!!!!\n!!!!!!!\n")
+
+        with open(path + "/" + name + ".xmfa", "w") as output:
+            output.write(self._mauve_format_string)
+
+            for nr, genome in sorted(alignment.genomes.items()):
+                output.write(self._mauve_genome_file.format(nr, genome.file_path))
+                if genome.entry > 0:
+                    output.write(self._mauve_genome_entry.format(nr, genome.entry))
+                output.write(self._mauve_genome_format.format(nr, genome.format))
+
+            sorted_lcbs = alignment.get_sorted_lcbs(order)
+            count = 0
+            for lcb in sorted_lcbs:
+                count += 1
+                for entry in sorted(lcb.entries, key=lambda e: e.genome_nr):
+                    output.write(self._mauve_block_header.format(entry.genome_nr,
+                                                                 entry.start,
+                                                                 entry.end,
+                                                                 entry.strand,
+                                                                 alignment.genomes[entry.genome_nr].file_path
+                                                                 )
+                                 )
+                    output.write("\n".join(re.findall(".{1,80}", entry.sequence)) + "\n")
+                output.write("=\n")
+
+    def write_maf(self, alignment, path, name, order=0):
+
+        if alignment.is_invalid():
+            print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: MAF is invalid!\n!!!!!!!!!\n!!!!!!!\n")
+
+        with open(path + "/" + name + ".maf", "w") as output:
+            output.write(self._maf_format_string)
+
+            sorted_lcbs = alignment.get_sorted_lcbs(order)
+
+            splitter = Splitter(alignment)
+            splitted_lcbs = []
+            for lcb in sorted_lcbs:
+                splitted_lcbs.extend(splitter.split_by_chromosomes(lcb))
+
+            count = 0
+            for lcb in splitted_lcbs:
+
+                count += 1
+                output.write(self._maf_sequence_header.format(count))
+
+                for entry in sorted(lcb.entries, key=lambda e: e.genome_nr):
+                    genome = alignment.genomes[entry.genome_nr]
+                    chrom_starts = splitter.get_chromosomes_for_entry(entry)
+
+                    if len(chrom_starts) != 1:
+                        raise Exception("Splitting by chromosomes went wrong.")
+
+                    chrom_start = chrom_starts[0]
+                    chrom = genome.chromosomes[chrom_start]
+
+                    start = entry.start - chrom_start
+
+                    output.write(self._maf_entry_header.format(chrom["desc"].replace(" ", "_"), start,
+                                                               ((entry.end - entry.start) + 1), entry.strand,
+                                                               chrom["length"], entry.sequence))
+
+    def write_mapping_coordinates(self, source, destinations, coords_dict, path, name):
+        with open(os.path.abspath(path + "/" + name + ".txt"), "w") as output:
+            output.write(''.join([str(source), " (source)", "\t"]))
+            output.write('\t'.join(destinations))
+            output.write("\n")
+
+            for coord, cur_dict in sorted(coords_dict.items()):
+                output.write(str(coord) + "\t")
+                new_coords = [str(cur_dict.get(dest, "-")) for dest in destinations]
+                output.write('\t'.join(new_coords))
+                output.write("\n")
+
+    def write_consensus(self, alignment, path, name, order=0):
+        filename = os.path.abspath(path + "/" + name + "_consensus.fasta")
+
+        consensus = Consensus()
+        consensus.from_alignment(alignment, order, filename)
+
+        self._write_consensus_index(alignment, filename, order)
+        self._write_consensus_separator(consensus, alignment, filename)
+        header = consensus.get_fasta_header(name)
+
+        record = SeqRecord(Seq(consensus.sequence), id=header, description='')
+
+        with open(filename + ".blockseparated.fasta", "w") as handle:
+            SeqIO.write(record, handle, "fasta")
+
+        record.seq = Seq(consensus.get_undelimited_sequence())
+
+        with open(filename, "w") as handle:
+            SeqIO.write(record, handle, "fasta")
+
+    def _write_consensus_index(self, alignment, fastafile, order=0):
+        with open(fastafile + ".idx", "w") as output:
+            output.write(self._consensus_index_fasta.format(fastafile))
+            output.write(self._consensus_index_xmfa.format(alignment.xmfa_file))
+
+            for nr, genome in sorted(alignment.genomes.items()):
+                output.write(self._mauve_genome_file.format(nr, genome.file_path))
+                if genome.entry > 0:
+                    output.write(self._mauve_genome_entry.format(nr, genome.entry))
+                output.write(self._mauve_genome_format.format(nr, genome.format))
+
+            sorted_lcbs = alignment.get_sorted_lcbs(order)
+
+            consensus_end = 0
+            counter = 1
+
+            for lcb in sorted_lcbs:
+                output.write(self._consensus_index_block_line.format(counter, consensus_end + 1,
+                                                                     consensus_end + lcb.length))
+                consensus_end += lcb.length
+
+                counter += 1
+                for entry in lcb.entries:
+                    output.write(self._consensus_index_sequence_line.format
+                                 (entry.genome_nr, entry.start, entry.end, entry.strand,
+                                  ';'.join(
+                                      ['-'.join([str(start), str(end)]) for start, end in sorted(entry.gaps.items())])
+                                  )
+                                 )
+
+    def _write_consensus_separator(self, consensus, alignment, fasta_file):
+        with open(fasta_file + ".blockseparated.idx", "w") as output:
+            output.write(self._consensus_index_fasta.format(fasta_file))
+            output.write(self._consensus_index_xmfa.format(alignment.xmfa_file))
+            output.write(';'.join([str(idx) for idx in consensus.block_start_indices]))
