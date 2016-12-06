@@ -49,8 +49,8 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |maf      |Write MAF file from XMFA file.|.MAF file|-x|-o|
 |map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
 |merge    |Add small LCBs to end or beginning of surrounding LCBs. Stand-alone merging step can only be used with two aligned sequences. |.XMFA file|-x|-o|
-|realign  |Realign sequences of LCBs around consecutive gaps, only possible before resolve-step|.XMFA file|-x|-o|
-|remove   |Remove a genome from all LCBs in alignment|.XMFA file|-x, -r|-o|
+|realign  |Realign sequences of LCBs around consecutive gaps, only possible before resolve-step.|.XMFA file|-x|-o|
+|remove   |Remove a genome from all LCBs in alignment.|.XMFA file|-x, -r|-o|
 |resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
 |separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
 |split    |Split LCBs according to chromosome annotation.|.XMFA file|-x|-o|
