@@ -6,8 +6,8 @@ import random
 from Bio import SeqIO
 from Bio.Seq import Seq
 
-from supergenome.exception import *
-from supergenome.constants import BLOCK_DELIMITER, RANDOM_SEED
+from seqseqpan.exception import *
+from seqseqpan.constants import BLOCK_DELIMITER, RANDOM_SEED
 
 
 class Genome:

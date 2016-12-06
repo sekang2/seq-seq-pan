@@ -2,8 +2,8 @@ import collections
 
 from Bio import pairwise2
 
-from supergenome.exception import ConsensusXMFAInputError
-from supergenome.base import *
+from seqseqpan.exception import ConsensusXMFAInputError
+from seqseqpan.base import *
 
 
 class Separator:

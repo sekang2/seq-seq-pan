@@ -1,4 +1,4 @@
-# Supergenome construction
+# Pangenome construction
 
 
 ## Prerequisites
@@ -12,7 +12,7 @@ Software required for running pipeline for set of genomes
 ## Program
 ### Usage
 ```
-supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
+seqseqpan.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
                 [-c CONSENSUS_F] [-m] [-o ORDER]
                 [-t {consensus,resolve,realign,xmfa,maf,map,merge,separate}]
                 [-i COORD_F] [-l LCB_LENGTH] 
@@ -29,13 +29,15 @@ supergenome.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
   -m, --merge           Merge small blocks to previous or next block in resolve-step.
   -o ORDER, --order ORDER
                         ordering of output (0,1,2,...) [default: 0]
-  -t {consensus,resolve,realign,xmfa,maf,map,merge,separate}, --task {consensus,resolve,realign,xmfa,maf,map,merge,separate}
-                        what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf)    [default: consensus]
+  -t {consensus,resolve,realign,xmfa,maf,map,merge,separate,remove,split}, --task {consensus,resolve,realign,xmfa,maf,map,merge,separate,remove,split}
+                        what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split)    [default: consensus]
   -i COORD_F, --index COORD_F
                         file with indices to map. First line: source_seq dest_seq[,dest_seq2,...] using "c" or sequence number.
                         Then one coordinate per line. Coordinates are 1-based!
   -l LCB_LENGTH, --length LCB_LENGTH
                         Shorter LCBs will be separated to form genome specific entries.
+  -r RM_GENOME, --removegenome RM_GENOME
+                        Number of genome to remove (as shown in XMFA header)
 ```
 
 #### Tasks
@@ -48,15 +50,17 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |map      |Map positions/coordinates from consensus to sequences, between sequences, ...|.TXT file|-i, -c||
 |merge    |Add small LCBs to end or beginning of surrounding LCBs. Stand-alone merging step can only be used with two aligned sequences. |.XMFA file|-x|-o|
 |realign  |Realign sequences of LCBs around consecutive gaps, only possible before resolve-step|.XMFA file|-x|-o|
+|remove   |Remove a genome from all LCBs in alignment|.XMFA file|-x, -r|-o|
 |resolve  |Build alignment of all genomes from .XMFA file with new genome aligned to consensus sequence.|.XMFA file|-x, -c|-o|
 |separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
+|split    |Split LCBs according to chromosome annotation.|.XMFA file|-x|-o|
 |xmfa     |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
 ---
 
 ## Pipeline
 ### Usage
 ```
-snakemake --snakefile run_supergenome.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
+snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
 ```
 
 #### Config

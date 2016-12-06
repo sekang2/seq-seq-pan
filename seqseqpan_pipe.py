@@ -3,10 +3,10 @@
 import argparse
 import sys
 
-from supergenome.io import Parser, Writer
-from supergenome.modifier import Realigner, Merger
-from supergenome.resolver import Resolver
-from supergenome.exception import *
+from seqseqpan.io import Parser, Writer
+from seqseqpan.modifier import Realigner, Merger
+from seqseqpan.resolver import Resolver
+from seqseqpan.exception import *
 
 
 def main():

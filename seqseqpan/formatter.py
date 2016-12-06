@@ -1,6 +1,6 @@
 import bisect
 
-from supergenome.base import *
+from seqseqpan.base import *
 
 
 class Splitter:

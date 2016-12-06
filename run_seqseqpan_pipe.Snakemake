@@ -2,29 +2,36 @@ import sys
 
 sys.setrecursionlimit(1000000)
 
-SCRIPT="python3 " + srcdir("supergenome.py")
-JAR="java -jar " + srcdir("java/XMFAConsensus/XMFAconsensus_majorityvote.jar")
+SCRIPT="python3 " + srcdir("seqseqpan_pipe.py")
+JAR="java -jar " + srcdir("java/XMFAConsensus/XMFAconsensus_fixed.jar")
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
 
 GENOME_DICT = {str(idx): {"name": GENOMES[idx].split(";")[1].strip(), "file":GENOMES[idx].split(";")[0].strip()} for idx in range(len(GENOMES))}
 GENOME_NAMES = [str(idx) for idx in range(len(GENOMES))]
-MERGE = config.get("merge", "")
 
+MERGE = config.get("merge", "")
+UNAMBIGUOUS = config.get("unambiguous", "")
 if MERGE.lower() == "true":
     MERGE = True
 else:
     MERGE = False
-    
-    
-# resolving not possible/necessary for alignment of first two genomes
-def resolve_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
 
-# merge after alignment
-def merge_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+".xmfa")
+
+# resolving not possible/necessary for alignment of first two genomes
+def prev_or_not(wildcards):
+
+    newnr = prev_genome(wildcards)
+    
+    if newnr == "0":
+        prevgen = [GENOME_DICT[newnr]["file"]]
+    else:
+        prevgen = "add"+newnr+"_ready.xmfa"
+
+    return(prevgen)
+    
+    
     
 def merge_or_not_param(wildcards):
     return ("-m" if MERGE else "")
@@ -56,21 +63,20 @@ rule all:
             config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
-            config["outfilename"]+"_resolve.xmfa",
-            config["outfilename"]+"_resolve.maf"
+            config["outfilename"]+"_ready.xmfa"
     
 rule fn_translate:
     input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
             cbi = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.idx",
             ci = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.idx",
             c = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta",
-            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_resolve.xmfa"
+            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_ready.xmfa"
             
     output: cb = config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             cbi = config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             ci = config["outfilename"]+"_consensus.fasta.idx",
             c = config["outfilename"]+"_consensus.fasta",
-            xmfa = config["outfilename"]+"_resolve.xmfa"
+            xmfa = config["outfilename"]+"_ready.xmfa"
             
     shell:
         '''
@@ -94,38 +100,30 @@ rule fn_translate:
 
         
 rule consensus:
-    input: resolve_or_not
+    input: "add{genome}_ready.xmfa"
     
     output: temp("add{genome}_consensus.fasta.blockseparated.fasta"),
             temp("add{genome}_consensus.fasta.blockseparated.idx"),
             temp("add{genome}_consensus.fasta.idx"),
             temp("add{genome}_consensus.fasta")
     shell:
-        #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
         "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
 
+        
 rule resolve:
-    input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
-            xmfa= "add{genome}_realign.xmfa", 
+    input:  #xmfa_prev= lambda wildcards: prev_or_not({"genome":prev_genome(wildcards)}), 
+            xmfa_prev = prev_or_not,
+            xmfa= "add{genome}.xmfa", 
             consensus=consensus_file
-    output: temp("add{genome,\d+}_resolve.xmfa")
+    output: temp("add{genome,\d+}_ready.xmfa")
     params: merge=merge_or_not_param
-    shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]} {params.merge}"
+    run:
+        command = "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} {params.merge}"
+        if int(wildcards["genome"]) > 1:
+            command = command + " -c {input.consensus[1]}"
+        shell(command)
         
         
-rule realign:
-    input: merge_or_not
-    output: temp("add{genome,\d+}_realign.xmfa")
-    shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
-
-        
-rule merge:
-    input: "add{genome}.xmfa"
-    output: temp("add{genome,\d+}_merge.xmfa")
-    shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
         
         
 rule align:
@@ -155,16 +153,3 @@ rule align:
         rm $input2.sslist
         rm $input2
         '''
-        
-        
-rule maf:
-    input: "{genome}.xmfa"
-    output: "{genome}.maf"
-    shell:
-        "{SCRIPT} -x {input} -p . -n {wildcards.genome} -t maf"
-
-rule split:
-    input: "add{genome}_resolve.xmfa"
-    output: "add{genome}_split.xmfa"
-    shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t split"

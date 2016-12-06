@@ -5,9 +5,9 @@ from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
 
-from supergenome.exception import *
-from supergenome.base import *
-from supergenome.formatter import Splitter
+from seqseqpan.exception import *
+from seqseqpan.base import *
+from seqseqpan.formatter import Splitter
 
 
 class Parser:

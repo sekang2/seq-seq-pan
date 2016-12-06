@@ -3,12 +3,12 @@
 import argparse
 import sys
 
-from supergenome.io import Parser, Writer
-from supergenome.modifier import Realigner, Merger, Separator, Remover
-from supergenome.formatter import Splitter
-from supergenome.resolver import Resolver
-from supergenome.exception import *
-from supergenome.mapper import Mapper
+from seqseqpan.io import Parser, Writer
+from seqseqpan.modifier import Realigner, Merger, Separator, Remover
+from seqseqpan.formatter import Splitter
+from seqseqpan.resolver import Resolver
+from seqseqpan.exception import *
+from seqseqpan.mapper import Mapper
 
 
 def main():
@@ -182,11 +182,11 @@ if __name__ == '__main__':
             print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task).", file=sys.stderr)
             if args.coord_f is None:
                 parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
-        else:
-            if args.xmfa_f is None:
-                parser.error("Please provide the following arguments: -x/--xmfa")
+    else:
+        if args.xmfa_f is None:
+            parser.error("Please provide the following arguments: -x/--xmfa")
 
-        if args.task == "remove" and args.rm_genome is None:
-            parser.error("Please provide the number of the genome to be removed.")
+    if args.task == "remove" and args.rm_genome is None:
+        parser.error("Please provide the number of the genome to be removed.")
 
     main()

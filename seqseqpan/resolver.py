@@ -1,8 +1,8 @@
 import bisect
 import re
 
-from supergenome.exception import ConsensusXMFAInputError, ConsensusCorruptError
-from supergenome.base import *
+from seqseqpan.exception import ConsensusXMFAInputError, ConsensusCorruptError
+from seqseqpan.base import *
 
 
 class Resolver:

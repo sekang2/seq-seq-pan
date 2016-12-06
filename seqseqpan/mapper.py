@@ -1,7 +1,7 @@
 import bisect
 from collections import defaultdict
 
-from supergenome.exception import CoordinateOutOfBoundsError
+from seqseqpan.exception import CoordinateOutOfBoundsError
 
 
 class Mapper:
