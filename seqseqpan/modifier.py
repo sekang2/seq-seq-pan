@@ -57,10 +57,12 @@ class Merger:
                     neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
                     if neighbour_new_entry is not None and (new_entry.start - neighbour_new_entry.end) == 1:
 
-                        if new_entry.strand == neighbour_new_entry.strand:
+                        if neighbour_new_entry.strand == "+":
                             append = True
                         else:
                             prepend = True
+
+                        if new_entry.strand != neighbour_new_entry.strand:
                             to_reverse_complement = True
 
                 # previous entry did not work, try to prepend to next entry
@@ -69,10 +71,12 @@ class Merger:
                     neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
                     if neighbour_new_entry is not None and (neighbour_new_entry.start - new_entry.end) == 1:
 
-                        if new_entry.strand == neighbour_new_entry.strand:
+                        if neighbour_new_entry.strand == "+":
                             prepend = True
                         else:
                             append = True
+
+                        if new_entry.strand != neighbour_new_entry.strand:
                             to_reverse_complement = True
 
             if append or prepend:
