@@ -132,11 +132,11 @@ class Resolver:
             if new_entry is None:
                 entries = []
             else:
-                entries = [self._get_new_entry(new_entry, indices[i], indices[i + 1])]
+                entries = [self._get_split_entry(new_entry, indices[i], indices[i + 1])]
 
             # check if element is non-delimiter element
             if (i % 2 == 0 and not even_is_delimiter) or (i % 2 != 0 and even_is_delimiter):
-                entries.append(self._get_new_entry(consensus_entry, indices[i], indices[i + 1]))
+                entries.append(self._get_split_entry(consensus_entry, indices[i], indices[i + 1]))
 
             entries = list(filter(None, entries))  # add all entries that are not None)
 
@@ -154,37 +154,15 @@ class Resolver:
 
         return split_lcbs
 
-    def _get_new_entry(self, entry, splitstart, splitend):
-        seq = entry.sequence[splitstart:splitend]
+    def _get_split_entry(self, entry, split_start, split_end):
+        seq = entry.sequence[split_start:split_end]
         if seq == "" or re.search("[^-]", seq) is None:
             return None
-        split_len = splitend - splitstart
+        split_len = split_end - split_start
+        return self._get_new_entry(seq, split_start, split_len, entry)
 
-        entry_len = entry.end - entry.start + 1
-        sum_gaps_before_entry = 0
-
-        subgaps = entry.get_gap_sublist(0, splitstart - 1)
-        if len(subgaps) > 0:
-            sum_gaps_before_entry = sum(end - start for start, end in subgaps.items())
-
-        if entry.strand == "+":
-            start = entry.start + splitstart - sum_gaps_before_entry
-            end = start + split_len - 1
-        else:
-            end = entry.start + entry_len - splitstart + sum_gaps_before_entry - 1
-            start = end - split_len + 1
-
-        new_entry = SequenceEntry(entry.genome_nr, start, end, entry.strand, seq)
-        sum_gaps_in_entry = sum(end - start for start, end in new_entry.gaps.items())
-        if entry.strand == "+":
-            new_entry.end = new_entry.end - sum_gaps_in_entry
-        else:
-            new_entry.start = new_entry.start + sum_gaps_in_entry
-
-        return new_entry
 
     def _calculate_coordinates(self, consensus_entry, consensus, orig_lcb_list):
-
 
         # calculate in which consensus block this entry is located
         idx = bisect.bisect_left(consensus.block_start_indices, consensus_entry.start)
@@ -209,28 +187,8 @@ class Resolver:
         for e in orig_lcb.entries:
 
             sequence = e.sequence[start_within_block:end_sub_sequence]
-            entry_len = e.end - e.start + 1
 
-            # count gaps in original sequence before start of sequence to get correct start and end for entry
-            sum_gaps_before_new_entry = 0
-            e_gaps_sublist = e.get_gap_sublist(0, start_within_block - 1)
-            if len(e_gaps_sublist) > 0:
-                sum_gaps_before_new_entry = sum(end - start for start, end in e_gaps_sublist.items())
-
-            if e.strand == "+":
-                start = e.start + start_within_block - sum_gaps_before_new_entry
-                end = start + len_within_block - 1
-            else:
-                end = e.start + entry_len - start_within_block + sum_gaps_before_new_entry - 1
-                start = end - len_within_block + 1
-
-            new_entry = SequenceEntry(e.genome_nr, start, end, e.strand, sequence)
-            sum_gaps_in_new_entry = sum(end - start for start, end in new_entry.gaps.items())
-
-            if e.strand == "+":
-                new_entry.end = new_entry.end - sum_gaps_in_new_entry
-            else:
-                new_entry.start = new_entry.start + sum_gaps_in_new_entry
+            new_entry = self._get_new_entry(sequence,start_within_block,len_within_block,e)
 
             # add all gaps in consensus sequence to original sequence for correct alignment
             for gap_start, gap_end in sorted(consensus_entry.gaps.items()):
@@ -245,3 +203,30 @@ class Resolver:
     def _insert_gap(self, sequence, position, length):
         seq = ("-" * length).join([sequence[:position], sequence[position:]])
         return seq
+
+
+    def _get_new_entry(self, split_entry_sequence, split_start, split_len, org_entry):
+        entry_len = org_entry.end - org_entry.start + 1
+
+        # count gaps in original sequence before start of sequence to get correct start and end for entry
+        sum_gaps_before_split_entry = 0
+
+        subgaps = org_entry.get_gap_sublist(0, split_start - 1)
+        if len(subgaps) > 0:
+            sum_gaps_before_split_entry = sum(end - start for start, end in subgaps.items())
+
+        if org_entry.strand == "+":
+            start = org_entry.start + split_start - sum_gaps_before_split_entry
+            end = start + split_len - 1
+        else:
+            end = org_entry.start + entry_len - split_start + sum_gaps_before_split_entry - 1
+            start = end - split_len + 1
+
+        new_entry = SequenceEntry(org_entry.genome_nr, start, end, org_entry.strand, split_entry_sequence)
+        sum_gaps_in_split_entry = sum(end - start for start, end in new_entry.gaps.items())
+        if org_entry.strand == "+":
+            new_entry.end = new_entry.end - sum_gaps_in_split_entry
+        else:
+            new_entry.start = new_entry.start + sum_gaps_in_split_entry
+
+        return new_entry
