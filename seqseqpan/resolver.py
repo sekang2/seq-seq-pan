@@ -20,7 +20,9 @@ class Resolver:
             consensus_entry = lcb.get_entry(consensus_genome_nr)
             if consensus_entry is not None:
                 # consensus sequence entry of LCB should be on forward strand for easier calculation of coordinates
+                # also: delimiter positions are stored in forward direction
                 # if not: reverse complement all entries in LCB
+
                 if consensus_entry.strand == "-":
                     lcb.reverse_complement_entries()
 
@@ -51,12 +53,14 @@ class Resolver:
 
             # for each block reconstruct original sequence from consensus entry and/or add entry from new genome
             for lcb in resolved_align.lcbs:
+
                 recalculated_lcb = LCB(lcb.number)
                 new_entry = lcb.get_entry(new_genome_nr)
 
                 if new_entry is not None:
                     new_entry.genome_nr = nr_genomes
                     recalculated_lcb.add_entries(new_entry)
+
                 consensus_entry = lcb.get_entry(consensus_genome_nr)
                 if consensus_entry is not None:
                     org_entries = self._calculate_coordinates(consensus_entry, consensus, sorted_orig_lcbs)
@@ -124,6 +128,7 @@ class Resolver:
         for i in range(len(indices) - 1):
 
             new_entry = lcb.get_entry(new_genome_nr)
+
             if new_entry is None:
                 entries = []
             else:
@@ -155,21 +160,31 @@ class Resolver:
             return None
         split_len = splitend - splitstart
 
-        sum_gaps = 0
+        entry_len = entry.end - entry.start + 1
+        sum_gaps_before_entry = 0
 
         subgaps = entry.get_gap_sublist(0, splitstart - 1)
         if len(subgaps) > 0:
-            sum_gaps = sum(end - start for start, end in subgaps.items())
+            sum_gaps_before_entry = sum(end - start for start, end in subgaps.items())
 
-        start = entry.start + splitstart - sum_gaps
-        end = start + split_len - 1
+        if entry.strand == "+":
+            start = entry.start + splitstart - sum_gaps_before_entry
+            end = start + split_len - 1
+        else:
+            end = entry.start + entry_len - splitstart + sum_gaps_before_entry - 1
+            start = end - split_len + 1
 
         new_entry = SequenceEntry(entry.genome_nr, start, end, entry.strand, seq)
-        new_entry.end = new_entry.end - sum(end - start for start, end in new_entry.gaps.items())
+        sum_gaps_in_entry = sum(end - start for start, end in new_entry.gaps.items())
+        if entry.strand == "+":
+            new_entry.end = new_entry.end - sum_gaps_in_entry
+        else:
+            new_entry.start = new_entry.start + sum_gaps_in_entry
 
         return new_entry
 
     def _calculate_coordinates(self, consensus_entry, consensus, orig_lcb_list):
+
 
         # calculate in which consensus block this entry is located
         idx = bisect.bisect_left(consensus.block_start_indices, consensus_entry.start)
@@ -180,6 +195,7 @@ class Resolver:
         # calculate start and end of sequence within current consensus block
         start_within_block = consensus_entry.start - consensus.block_start_indices[idx] - 1
         end_within_block = consensus_entry.end - consensus.block_start_indices[idx] - 1
+        len_within_block = end_within_block - start_within_block + 1
 
         # count gaps in consensus entry
         sum_gaps = 0
@@ -191,22 +207,30 @@ class Resolver:
 
         org_entries = []
         for e in orig_lcb.entries:
-            start = e.start + start_within_block
-            end = e.start + end_within_block
+
             sequence = e.sequence[start_within_block:end_sub_sequence]
+            entry_len = e.end - e.start + 1
 
             # count gaps in original sequence before start of sequence to get correct start and end for entry
-            e_sum_gaps = 0
+            sum_gaps_before_new_entry = 0
             e_gaps_sublist = e.get_gap_sublist(0, start_within_block - 1)
             if len(e_gaps_sublist) > 0:
-                e_sum_gaps = sum(end - start for start, end in e_gaps_sublist.items())
+                sum_gaps_before_new_entry = sum(end - start for start, end in e_gaps_sublist.items())
 
-            start = start - e_sum_gaps
-            end = end - e_sum_gaps
+            if e.strand == "+":
+                start = e.start + start_within_block - sum_gaps_before_new_entry
+                end = start + len_within_block - 1
+            else:
+                end = e.start + entry_len - start_within_block + sum_gaps_before_new_entry - 1
+                start = end - len_within_block + 1
 
             new_entry = SequenceEntry(e.genome_nr, start, end, e.strand, sequence)
+            sum_gaps_in_new_entry = sum(end - start for start, end in new_entry.gaps.items())
 
-            new_entry.end = new_entry.end - sum(end - start for start, end in new_entry.gaps.items())
+            if e.strand == "+":
+                new_entry.end = new_entry.end - sum_gaps_in_new_entry
+            else:
+                new_entry.start = new_entry.start + sum_gaps_in_new_entry
 
             # add all gaps in consensus sequence to original sequence for correct alignment
             for gap_start, gap_end in sorted(consensus_entry.gaps.items()):
