@@ -4,10 +4,10 @@ from seqseqpan.base import *
 
 
 class Splitter:
-    def __init__(self, alignment):
+    def __init__(self, alignment, chromosome_desc):
         self.alignment = alignment
         for nr, genome in alignment.genomes.items():
-            genome.read_chromosomes()
+            genome.add_chromosomes(chromosome_desc[nr])
 
     def split_alignment(self):
 

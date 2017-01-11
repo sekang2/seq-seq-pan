@@ -4,6 +4,7 @@ sys.setrecursionlimit(1000000)
 
 SCRIPT="python3 " + srcdir("seqseqpan.py")
 JAR="java -jar " + srcdir("java/XMFAConsensus/XMFAconsensus_majorityvote.jar")
+GENOMEDESC_SCRIPT= "python3 " + srcdir("genomedescription.py")
 
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
@@ -52,7 +53,8 @@ def prev_genome(wildcards):
     
     
 rule all:
-    input:  config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
+    input:  config["outfilename"]+"_genomedescription.txt",
+            config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
@@ -158,13 +160,21 @@ rule align:
         
         
 rule maf:
-    input: "{genome}.xmfa"
+    input: xmfa="{genome}.xmfa",
+           genomedesc=config["outfilename"]+"_genomedescription.txt"
     output: "{genome}.maf"
     shell:
-        "{SCRIPT} -x {input} -p . -n {wildcards.genome} -t maf"
+        "{SCRIPT} -x {input.xmfa} -p . -n {wildcards.genome} -t maf -g {input.genomedesc}"
 
 rule split:
-    input: "add{genome}_resolve.xmfa"
+    input: xmfa="add{genome}_resolve.xmfa",
+           genomedesc=config["outfilename"]+"_genomedescription.txt"
     output: "add{genome}_split.xmfa"
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t split"
+        "{SCRIPT} -x {input.genome} -p . -n add{wildcards.genome} -t split -g {input.genomedesc}"
+
+rule genomedesc:
+    input: config["genomefile"]
+    output: config["outfilename"]+"_genomedescription.txt"
+    shell:
+        "{GENOMEDESC_SCRIPT} {input} > {output}"

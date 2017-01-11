@@ -2,6 +2,7 @@
 
 import argparse
 import sys
+import pdb
 
 from seqseqpan.io import Parser, Writer
 from seqseqpan.modifier import Realigner, Merger, Separator, Remover
@@ -45,7 +46,6 @@ def main():
                     writer.write_mapping_coordinates(source, destinations, coords_dict, args.output_p, args.output_name)
     else:
         try:
-
             align = parser.parse_xmfa(args.xmfa_f)
 
         except (XMFAHeaderFormatError, LcbInputError) as e:
@@ -54,7 +54,9 @@ def main():
             try:
                 if args.task == "split":
 
-                    splitter = Splitter(align)
+                    chromosome_desc = parser.parse_genome_description(args.genome_desc_f)
+
+                    splitter = Splitter(align, chromosome_desc)
                     split = splitter.split_alignment()
 
                     writer.write_xmfa(split, args.output_p, args.output_name + "_split", args.order)
@@ -135,8 +137,8 @@ def main():
                     writer.write_xmfa(align, args.output_p, args.output_name, args.order)
 
                 elif args.task == "maf":
-
-                    writer.write_maf(align, args.output_p, args.output_name, args.order)
+                    chromosome_desc = parser.parse_genome_description(args.genome_desc_f)
+                    writer.write_maf(align, args.output_p, args.output_name, chromosome_desc)
 
             except ParameterError as e:
                 print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter,
@@ -170,6 +172,11 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--removegenome", dest="rm_genome", type=int,
                         help="Number of genome to remove (as shown in XMFA header)", required=False)
 
+    parser.add_argument("-g", "--genome_desc", dest="genome_desc_f", help = "File containing genome description (name/chromosomes) for .MAF file creation and 'split' task.\n"
+                                                                    "Format: genome number as in xmfa\tname/description\tlength"
+                                                                    "Length information is only necessary for FASTA files containing more than one chromosome.\n"
+                                                                    "Multiple chromosomes a genome must be listed in the same order as in original FASTA file.\n")
+
     args = parser.parse_args()
 
     if args.task == "resolve" and args.consensus_f is None:
@@ -188,5 +195,8 @@ if __name__ == '__main__':
 
     if args.task == "remove" and args.rm_genome is None:
         parser.error("Please provide the number of the genome to be removed.")
+
+    if (args.task == "maf" or args.task == "split") and args.genome_desc_f is None:
+        parser.error("Please provide the genome description file.")
 
     main()

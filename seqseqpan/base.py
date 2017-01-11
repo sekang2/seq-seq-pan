@@ -16,16 +16,16 @@ class Genome:
         self.format = fileformat
         self.entry = int(entry)
         self.chromosomes = None
+        self.length = 0
 
-    def read_chromosomes(self):
+    def add_chromosomes(self, chromosomes):
         self.chromosomes = {}
         start = 1
-        with open(self.file_path, "r") as fasta:
-            for record in SeqIO.parse(fasta, "fasta"):
-                cur_length = len(record.seq)
-                self.chromosomes[int(start)] = {"desc": record.description, "length": cur_length}
-                start += cur_length
-
+        for chromosome in chromosomes:
+            if chromosome["length"] is None:
+                chromosome["length"] = self.length
+            self.chromosomes[int(start)] = chromosome
+            start += chromosome["length"]
 
 class Alignment:
     def __init__(self, xmfa_file):

@@ -1,5 +1,6 @@
 import os
 import re
+import collections
 
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -49,6 +50,7 @@ class Parser:
                     if len(seq_parts) > 0 and int(end) > 0:  # save previous sequence
                         seq = "".join(seq_parts)
                         ses.append(SequenceEntry(seq_nr, start, end, strand, seq))
+                        alignment.genomes[int(seq_nr)].length = max(alignment.genomes[int(seq_nr)].length, int(end))
 
                     seq_parts = []
                     m = re.match(">\s*(\d+):(\d+)-(\d+) ([+-]) ", line)
@@ -63,6 +65,7 @@ class Parser:
                     if len(seq_parts) > 0 and int(end) > 0:
                         seq = "".join(seq_parts)
                         ses.append(SequenceEntry(seq_nr, start, end, strand, seq))
+                        alignment.genomes[int(seq_nr)].length = max(alignment.genomes[int(seq_nr)].length, int(end))
 
                     alignment.add_lcb_entries(ses)
 
@@ -205,7 +208,7 @@ class Parser:
         return alignment, consensus
 
     def parse_mapping_coordinates(self, coord_f):
-        with open(coord_f) as in_file:
+        with open(coord_f, "r") as in_file:
             header = in_file.readline().strip()
             source, dest = header.split("\t")
             dests = dest.split(",")
@@ -216,6 +219,17 @@ class Parser:
 
         return source, dests, coords
 
+    def parse_genome_description(self, genome_desc_f):
+        chromosome_desc = collections.defaultdict(list)
+        with open(genome_desc_f, "r") as in_file:
+            line = in_file.readline().strip()
+            while line:
+                fields = line.split("\t")
+                length = int(fields[2]) if len(fields) > 2 else None
+                chromosome_desc[int(fields[0])].append({"desc": fields[1], "length": length})
+                line = in_file.readline().strip()
+
+        return chromosome_desc
 
 class Writer:
     _mauve_format_string = "#FormatVersion Mauve1\n"
@@ -262,7 +276,7 @@ class Writer:
                     output.write("\n".join(re.findall(".{1,80}", entry.sequence)) + "\n")
                 output.write("=\n")
 
-    def write_maf(self, alignment, path, name, order=0):
+    def write_maf(self, alignment, path, name, chromosome_desc):
 
         if alignment.is_invalid():
             print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: MAF is invalid!\n!!!!!!!!!\n!!!!!!!\n")
@@ -270,15 +284,11 @@ class Writer:
         with open(path + "/" + name + ".maf", "w") as output:
             output.write(self._maf_format_string)
 
-            sorted_lcbs = alignment.get_sorted_lcbs(order)
-
-            splitter = Splitter(alignment)
-            splitted_lcbs = []
-            for lcb in sorted_lcbs:
-                splitted_lcbs.extend(splitter.split_by_chromosomes(lcb))
+            splitter = Splitter(alignment, chromosome_desc)
+            split = splitter.split_alignment()
 
             count = 0
-            for lcb in splitted_lcbs:
+            for lcb in split.lcbs:
 
                 count += 1
                 output.write(self._maf_sequence_header.format(count))
