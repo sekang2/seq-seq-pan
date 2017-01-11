@@ -66,6 +66,32 @@ def main():
 
                     writer.write_xmfa(remove, args.output_p, args.output_name + "_removed", args.order)
 
+                elif args.task == "extract":
+                    region = args.region
+
+                    region_fields = region.split(":")
+
+                    entries = []
+                    for lcb in align.lcbs:
+                        entry = lcb.get_entry(int(region_fields[0]))
+                        if entry is not None:
+                            if entry.strand == "-":
+                                entry.reverse_complement()
+                            entries.append(entry)
+
+                    sorted_entries = sorted(entries, key=lambda entry: entry.start)
+
+                    sequence = "".join([entry.sequence for entry in sorted_entries])
+                    sequence = sequence.replace("-", "")
+
+                    if len(region_fields) > 1:
+                        start, end = region_fields[1].split("-")
+                        start = int(start)-1
+                        sequence = sequence[start:int(end)]
+
+
+                    writer.write_fasta(region, sequence, args.output_p, args.output_name)
+
                 elif args.task == "realign":
                     try:
                         realign = realigner.realign(align)
@@ -160,10 +186,10 @@ if __name__ == '__main__':
                         help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0,
                         help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
-    parser.add_argument("-t", "--task", dest="task", default="consensus",
-                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split)",
+    parser.add_argument("-t", "--task", dest="task",
+                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract)",
                         choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate", "remove",
-                                 "split"], required=True)
+                                 "split", "extract"], required=True)
     parser.add_argument("-i", "--index", dest="coord_f",
                         help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line. Coordinates are 1-based!")
     parser.add_argument("-l", "--length", dest="lcb_length", type=int,
@@ -176,6 +202,7 @@ if __name__ == '__main__':
                                                                     "Format: genome number as in xmfa\tname/description\tlength"
                                                                     "Length information is only necessary for FASTA files containing more than one chromosome.\n"
                                                                     "Multiple chromosomes a genome must be listed in the same order as in original FASTA file.\n")
+    parser.add_argument("-e", "--extractregion", dest="region", help="Region to extract in the form genome_nr:start-end (one based and inclusive) or only genome_nr for full sequence.")
 
     args = parser.parse_args()
 
@@ -198,5 +225,8 @@ if __name__ == '__main__':
 
     if (args.task == "maf" or args.task == "split") and args.genome_desc_f is None:
         parser.error("Please provide the genome description file.")
+
+    if args.task == "extract" and args.region is None:
+        parser.error("Please provide the region to extract.")
 
     main()

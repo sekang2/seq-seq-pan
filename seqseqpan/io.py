@@ -341,6 +341,13 @@ class Writer:
         with open(filename, "w") as handle:
             SeqIO.write(record, handle, "fasta")
 
+    def write_fasta(self, seq_name, sequence, path, name):
+        filename = os.path.abspath(path + "/" + name + ".fasta")
+        record = SeqRecord(Seq(sequence), id=seq_name, description='')
+
+        with open(filename, "w") as handle:
+            SeqIO.write(record, handle, "fasta")
+
     def _write_consensus_index(self, alignment, fastafile, order=0):
         with open(fastafile + ".idx", "w") as output:
             output.write(self._consensus_index_fasta.format(fastafile))
