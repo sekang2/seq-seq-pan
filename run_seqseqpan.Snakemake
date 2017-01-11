@@ -145,7 +145,7 @@ rule align:
         cp {input.consensus[0]} $input
         cp {input.new} $input2
         
-        progressiveMauve $input $input2 --output={output[0]} --max-gapped-aligner-length=900 > /dev/null
+        progressiveMauve $input $input2 --output={output[0]} > /dev/null
         
         sed -i "s|$input|{input.consensus[0]}|g" {output[0]}
         sed -i "s|$input2|{input.new}|g" {output[0]}
