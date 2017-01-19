@@ -1,4 +1,7 @@
 import collections
+import itertools
+from operator import itemgetter
+import sys
 
 from Bio import pairwise2
 
@@ -243,45 +246,61 @@ class Realigner:
 
 
 class Remover:
-    def __init__(self):
-        pass
-
     def remove(self, alignment, rm_genome):
         if len(alignment.genomes) >= rm_genome > -1:
+            #print ("Number of LCBs: " + str(len(alignment.lcbs)))
 
             for lcb in alignment.lcbs:
-                for i in range(0, lcb.length, 80):
-                    for entry in lcb.entries:
-                        if entry.genome_nr != rm_genome:
-                            print(entry.sequence[i:i + 80])
-
-                    print("\n")
+                #sys.stdout.write(".")
+                #sys.stdout.flush()
 
                 entries = [entry for entry in lcb.entries if entry.genome_nr != rm_genome]
-                if len(entries) > 0:
 
-                    all_gaps = sum([list(range(k, entry.gaps[k])) for entry in entries for k in entry.gaps], [])
+                # did LCB include entry of genome to remove?
+                if len(entries) < len(lcb.entries):
+                    # are there any entries left in LCB?
+                    if len(entries) > 1:
+                        # if more than one entry left search for gaps that are present in all remaining entries
 
-                    gap_counts = collections.Counter(all_gaps)
+                        rm_gaps = set(itertools.chain.from_iterable([list(range(k, entries[0].gaps[k])) for k in entries[0].gaps]))
 
-                    rm_gaps = sorted([k for k, v in gap_counts.items() if v == len(alignment.genomes) - 1])
-                    if len(rm_gaps) > 0:
-                        if rm_gaps[0] != 0:
-                            rm_gaps = [-1] + rm_gaps
+                        for entry in entries[1:]:
+                            rm_gaps &= set(itertools.chain.from_iterable([list(range(k, entry.gaps[k])) for k in entry.gaps]))
+                        rm_gaps = sorted(list(rm_gaps))
 
-                        if rm_gaps[-1] != lcb.length:
-                            rm_gaps = rm_gaps + [lcb.length]
+                        # make intervals of consecutive gap positions for faster join()
+                        gap_ranges = []
+                        for k, g in itertools.groupby(enumerate(rm_gaps), lambda x:x[0]-x[1]):
+                            group = list(map(itemgetter(1), g))
+                            gap_ranges.append((group[0], group[-1])) # tuples with intervals
 
-                        for entry in entries:
-                            entry.sequence = ''.join(
-                                [entry.sequence[(rm_gaps[i] + 1):rm_gaps[i + 1]] for i in range(len(rm_gaps) - 1)])
-                            if entry.genome_nr > rm_genome:
-                                entry.genome_nr -= 1
-                    # if no gaps found only reduce genome nr (avoid looping through entries twice if gaps present)            
-                    else:
-                        for entry in entries:
-                            if entry.genome_nr > rm_genome:
-                                entry.genome_nr -= 1
+                        if len(gap_ranges) > 0:
+                            if gap_ranges[0][0] != 0:
+                                gap_ranges = [(-1, -1)] + gap_ranges
+
+                            if gap_ranges[-1] != lcb.length:
+                                gap_ranges = gap_ranges + [(lcb.length, lcb.length)]
+
+                            for entry in entries:
+                                entry.sequence = ''.join(
+                                    [entry.sequence[(gap_ranges[i][1] + 1):gap_ranges[i + 1][0]] for i in
+                                     range(len(gap_ranges) - 1)])
+                                if entry.genome_nr > rm_genome:
+                                    entry.genome_nr -= 1
+                        # if no gaps found only reduce genome nr (avoid looping through entries twice if gaps present)
+                        else:
+                            for entry in entries:
+                                if entry.genome_nr > rm_genome:
+                                    entry.genome_nr -= 1
+
+                    elif len(entries) == 1: # if only one entry left replace all gaps in sequence
+                        entries[0].sequence = entries[0].sequence.replace("-", "")
+                        if entries[0].genome_nr > rm_genome:
+                                entries[0].genome_nr -= 1
+                else:
+                    for entry in entries:
+                        if entry.genome_nr > rm_genome:
+                            entry.genome_nr -= 1
 
                 lcb.entries[:] = entries
 
