@@ -51,7 +51,8 @@ seqseqpan.py  [-h] [-x XMFA_F] -p OUTPUT_P -n OUTPUT_NAME
   
   -r RM_GENOME, --removegenome RM_GENOME
                         Number of genome to remove (as shown in XMFA header)
-                          -g GENOME_DESC_F, --genome_desc GENOME_DESC_F
+  
+  -g GENOME_DESC_F, --genome_desc GENOME_DESC_F
                         File containing genome description (name/chromosomes) for .MAF file creation and 'split' task. 
                         Format: genome number as in xmfa      name/description      length    (separated with tabs)
                         Length information is only necessary for FASTA files containing more than one chromosome. 
