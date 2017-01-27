@@ -3,12 +3,11 @@
 
 ## Prerequisites
 This program was implemented in Python and requires Python3.4 or higher.
-Some parts were reimplemented in Java8 and can be used for performance reasons.
 
 Software required for running pipeline for set of genomes
 * snakemake
 * progressiveMauve
-
+* Java8
 
 ---
 ## Program
