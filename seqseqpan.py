@@ -199,7 +199,7 @@ if __name__ == '__main__':
                         help="Number of genome to remove (as shown in XMFA header)", required=False)
 
     parser.add_argument("-g", "--genome_desc", dest="genome_desc_f", help = "File containing genome description (name/chromosomes) for .MAF file creation and 'split' task.\n"
-                                                                    "Format: genome number as in xmfa\tname/description\tlength"
+                                                                    "Format: genome number as in xmfa   name/description    length     (tab-separated)"
                                                                     "Length information is only necessary for FASTA files containing more than one chromosome.\n"
                                                                     "Multiple chromosomes a genome must be listed in the same order as in original FASTA file.\n")
     parser.add_argument("-e", "--extractregion", dest="region", help="Region to extract in the form genome_nr:start-end (one based and inclusive) or only genome_nr for full sequence.")
@@ -212,10 +212,11 @@ if __name__ == '__main__':
     if args.task == "map":
         if args.consensus_f is None:
             parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"map\"-task (-t/--task).")
+        if args.coord_f is None:
+            parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
         if args.xmfa_f is not None:
             print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task).", file=sys.stderr)
-            if args.coord_f is None:
-                parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
+
     else:
         if args.xmfa_f is None:
             parser.error("Please provide the following arguments: -x/--xmfa")

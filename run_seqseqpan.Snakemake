@@ -9,14 +9,14 @@ GENOMEDESC_SCRIPT= "python3 " + srcdir("genomedescription.py")
 with open(config["genomefile"], "r") as f:
     GENOMES = f.readlines()
 
-GENOME_DICT = {str(idx): {"name": GENOMES[idx].split(";")[1].strip(), "file":GENOMES[idx].split(";")[0].strip()} for idx in range(len(GENOMES))}
+GENOME_DICT = {str(idx): GENOMES[idx].strip() for idx in range(len(GENOMES))}
 GENOME_NAMES = [str(idx) for idx in range(len(GENOMES))]
 MERGE = config.get("merge", "")
 
-if MERGE.lower() == "true":
-    MERGE = True
-else:
+if MERGE.lower() == "false":
     MERGE = False
+else:
+    MERGE = True
     
     
 # resolving not possible/necessary for alignment of first two genomes
@@ -33,7 +33,7 @@ def merge_or_not_param(wildcards):
 
 def mauve_input(wildcards):
     
-    return (GENOME_DICT[wildcards["genome"]]["file"])
+    return (GENOME_DICT[wildcards["genome"]])
     
     
 def consensus_file(wildcards):
@@ -41,7 +41,7 @@ def consensus_file(wildcards):
     newnr = prev_genome(wildcards)
     
     if newnr == "0":
-        consgen = [GENOME_DICT[newnr]["file"]]
+        consgen = [GENOME_DICT[newnr]]
     else:
         consgen = ["add"+newnr+"_consensus.fasta.blockseparated.fasta", "add"+newnr+"_consensus.fasta", "add"+newnr+"_consensus.fasta.blockseparated.idx"]
         
