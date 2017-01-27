@@ -177,4 +177,4 @@ rule genomedesc:
     input: config["genomefile"]
     output: config["outfilename"]+"_genomedescription.txt"
     shell:
-        "{GENOMEDESC_SCRIPT} {input} > {output}"
+        "{GENOMEDESC_SCRIPT} -i {input} -o {output}"
