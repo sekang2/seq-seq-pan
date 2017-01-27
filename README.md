@@ -85,7 +85,7 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 ### Genome Description File 
 Use the genome_description.py script to generate the genome description file for a set of .FASTA files.
 ```
-python3.4 genomedescription.py -i FASTA_F [FASTA_F ...] -o GENOME_DESC_F
+python3.4 genomedescription.py -i GENOME_LIST -o GENOME_DESC_F
 ```
 
 ## Pipeline
