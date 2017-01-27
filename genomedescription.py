@@ -14,7 +14,7 @@ if __name__ == '__main__':
 
         for i in range(0,len(allfiles)):
 
-            fields = allfiles[i].split(";")
+            fields = allfiles[i].strip().split(";")
             with open(fields[0], "r") as fasta:
                 for record in SeqIO.parse(fasta, "fasta"):
                     cur_length = len(record.seq)

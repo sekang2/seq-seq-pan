@@ -1,3 +1,3 @@
-/home/chrjan/multiplegenomealignment/example/seq/Mycobacterium_tuberculosis_W-148_uid39283.fasta;W-148
-/home/chrjan/multiplegenomealignment/example/seq/Mycobacterium_tuberculosis_H37Rv_uid57777.fasta;H37Rv
-/home/chrjan/multiplegenomealignment/example/seq/Mycobacterium_tuberculosis_Beijing_NITR203_uid197218.fasta;Beijing
+./seq/Mycobacterium_tuberculosis_W-148_uid39283.fasta
+./seq/Mycobacterium_tuberculosis_H37Rv_uid57777.fasta
+./seq/Mycobacterium_tuberculosis_Beijing_NITR203_uid197218.fasta
