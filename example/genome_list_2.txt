@@ -1,0 +1,2 @@
+./seq/Mycobacterium_tuberculosis_CTRI_2_uid161997.fasta
+./seq/Mycobacterium_tuberculosis_Haarlem_uid54453.fasta
