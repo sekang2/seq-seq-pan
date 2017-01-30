@@ -1,4 +1,5 @@
 import sys
+import re
 
 sys.setrecursionlimit(1000000)
 
@@ -12,67 +13,81 @@ with open(config["genomefile"], "r") as f:
 GENOME_DICT = {str(idx): GENOMES[idx].strip() for idx in range(len(GENOMES))}
 GENOME_NAMES = [str(idx) for idx in range(len(GENOMES))]
 MERGE = config.get("merge", "")
+PREV_PAN = config.get("pangenome", "")
 
 if MERGE.lower() == "false":
     MERGE = False
 else:
     MERGE = True
+
+if PREV_PAN != "":
+     PREV_PAN = re.sub("\.xmfa$", "", PREV_PAN)
     
-    
+
+ruleorder: use_prev_pan > resolve
+
+
+# determine which file is translated to output xmfa
+def output_xmfa(wildcards):
+    xmfa_f = resolve_or_not({"genome": str(len(GENOME_NAMES)-1)})
+    return xmfa_f
+
 # resolving not possible/necessary for alignment of first two genomes
 def resolve_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_resolve.xmfa" if int(wildcards["genome"]) > 1 else "add"+wildcards["genome"]+"_realign.xmfa")
+    return ("add"+wildcards["genome"]+"_realign.xmfa"  if (int(wildcards["genome"]) <= 1 and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
 
 # merge after alignment
 def merge_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+".xmfa")
+    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+"_align.xmfa")
     
 def merge_or_not_param(wildcards):
     return ("-m" if MERGE else "")
-    
+
+def prev_pan_or_not_param(wildcards):
+    return ("-a "+ PREV_PAN +"_genomedescription.txt" if PREV_PAN != "" else "")
 
 def mauve_input(wildcards):
-    
     return (GENOME_DICT[wildcards["genome"]])
-    
-    
-def consensus_file(wildcards):
-    
-    newnr = prev_genome(wildcards)
-    
-    if newnr == "0":
-        consgen = [GENOME_DICT[newnr]]
-    else:
-        consgen = ["add"+newnr+"_consensus.fasta.blockseparated.fasta", "add"+newnr+"_consensus.fasta", "add"+newnr+"_consensus.fasta.blockseparated.idx"]
-        
-    return consgen
 
+def consensus_file(wildcards):
+
+    new_nr = prev_genome(wildcards)
+
+    if int(new_nr) > 0 or (int(new_nr) <= 0 and PREV_PAN != ""):
+       consgen = ["add"+new_nr+"_consensus.fasta.blockseparated.fasta", "add"+new_nr+"_consensus.fasta", "add"+new_nr+"_consensus.fasta.blockseparated.idx"]
+    elif PREV_PAN == "":
+       consgen = [GENOME_DICT[new_nr]]
+    else:
+        print("Error in defining the second file for alignment.")
+
+    return consgen
 
 def prev_genome(wildcards):
     return(str(int(wildcards['genome']) - 1))
-    
-    
+
+
+
 rule all:
     input:  config["outfilename"]+"_genomedescription.txt",
             config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             config["outfilename"]+"_consensus.fasta.idx",
             config["outfilename"]+"_consensus.fasta",
-            config["outfilename"]+"_resolve.xmfa",
-            config["outfilename"]+"_resolve.maf"
+            config["outfilename"]+".xmfa",
+            config["outfilename"]+".maf"
     
 rule fn_translate:
     input:  cb = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.fasta",
             cbi = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.blockseparated.idx",
             ci = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta.idx",
             c = "add"+str(len(GENOME_NAMES)-1)+"_consensus.fasta",
-            xmfa = "add"+str(len(GENOME_NAMES)-1)+"_resolve.xmfa"
+            xmfa = output_xmfa
             
     output: cb = config["outfilename"]+"_consensus.fasta.blockseparated.fasta",
             cbi = config["outfilename"]+"_consensus.fasta.blockseparated.idx",
             ci = config["outfilename"]+"_consensus.fasta.idx",
             c = config["outfilename"]+"_consensus.fasta",
-            xmfa = config["outfilename"]+"_resolve.xmfa"
+            xmfa = config["outfilename"]+".xmfa"
             
     shell:
         '''
@@ -106,6 +121,7 @@ rule consensus:
         #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
         "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
 
+
 rule resolve:
     input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
             xmfa= "add{genome}_realign.xmfa", 
@@ -124,7 +140,7 @@ rule realign:
 
         
 rule merge:
-    input: "add{genome}.xmfa"
+    input: "add{genome}_align.xmfa"
     output: temp("add{genome,\d+}_merge.xmfa")
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
@@ -133,9 +149,9 @@ rule merge:
 rule align:
     input:  consensus=consensus_file, 
             new=mauve_input
-    output: temp("add{genome, \d+}.xmfa"), 
-            temp("add{genome, \d+}.xmfa.bbcols"), 
-            temp("add{genome, \d+}.xmfa.backbone")
+    output: temp("add{genome, \d+}_align.xmfa"),
+            temp("add{genome, \d+}_align.xmfa.bbcols"),
+            temp("add{genome, \d+}_align.xmfa.backbone")
     shell:
         '''
         input=`basename {input.consensus[0]}`
@@ -166,6 +182,7 @@ rule maf:
     shell:
         "{SCRIPT} -x {input.xmfa} -p . -n {wildcards.genome} -t maf -g {input.genomedesc}"
 
+
 rule split:
     input: xmfa="add{genome}_resolve.xmfa",
            genomedesc=config["outfilename"]+"_genomedescription.txt"
@@ -173,8 +190,17 @@ rule split:
     shell:
         "{SCRIPT} -x {input.genome} -p . -n add{wildcards.genome} -t split -g {input.genomedesc}"
 
+
 rule genomedesc:
     input: config["genomefile"]
     output: config["outfilename"]+"_genomedescription.txt"
+    params: add=prev_pan_or_not_param
     shell:
-        "{GENOMEDESC_SCRIPT} -i {input} -o {output}"
+        "{GENOMEDESC_SCRIPT} -i {input} -o {output} {params.add}"
+
+
+rule use_prev_pan:
+    input: PREV_PAN+".xmfa"
+    output: temp("add-1_resolve.xmfa")
+    shell:
+        "cp {input} {output} "

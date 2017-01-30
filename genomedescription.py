@@ -6,10 +6,19 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input", dest="genome_list", help= "File with list of /paths/to/files.fasta", required=True)
     parser.add_argument("-o", "--output", dest="genome_desc_f", help="name of output file", required=True)
+    parser.add_argument("-a", "--add", dest="add_f",  help="Add new genome description to this file.")
 
     args = parser.parse_args()
 
 with open(args.genome_desc_f, "w") as out_file, open(args.genome_list, "r") as in_file:
+
+        offset = 0
+
+        if args.add_f is not None:
+            with open(args.add_f) as add:
+                all_lines = add.readlines()
+                offset = len(all_lines)
+                out_file.writelines(all_lines)
 
         allfiles = in_file.readlines()
 
@@ -19,4 +28,4 @@ with open(args.genome_desc_f, "w") as out_file, open(args.genome_list, "r") as i
             with open(file, "r") as fasta:
                 for record in SeqIO.parse(fasta, "fasta"):
                     cur_length = len(record.seq)
-                    out_file.write("\t".join([str(i+1), record.description, str(cur_length)]) + "\n")
+                    out_file.write("\t".join([str(i+1+offset), record.description, str(cur_length)]) + "\n")
