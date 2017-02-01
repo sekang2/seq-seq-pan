@@ -79,6 +79,7 @@ Choose task with argument **-t**. Arguments **-p** and **-n** are required for e
 |separate |Separate small LCBs to form genome specific entries.|.XMFA file|-x, -l|-o|
 |split    |Split LCBs according to chromosome annotation.|.XMFA file|-x, -g|-o|
 |xmfa     |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
+
 ---
 
 ## Additional scripts
@@ -90,8 +91,14 @@ python3.4 genomedescription.py -i GENOME_LIST -o GENOME_DESC_F
 
 ## Pipeline
 ### Usage
+#### Build pan-genome from set of sequences
 ```
-snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=False
+snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
+```
+
+#### Add set of sequences to existing pan-genome
+```
+snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_new.txt outfilename=TB_example_extended merge=True pangenome=TB_example.xmfa
 ```
 
 #### Config
@@ -100,7 +107,8 @@ snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.tx
 |-------------|-------------|
 | genomefile  |One line per genome with full path to .FASTA file. |
 | outfilename |Prefix for all final output files.|
-| merge       |Optional, default = True. Should merging step be included in pipeline?|
+| merge       |Optional, default = True. Do you want to include the merging steps?|
+| pangenome   |Path to exisiting pan-genome (pangenome.XMFA). Accompanying genome description file has to be present in same folder (pangenome_genomedescription.TXT).|
 
 ---
 
@@ -109,3 +117,9 @@ snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.tx
 Pipeline steps are represented as blocks, dashed ones are optional. The first iteration is different and is marked with the blue arrow.
 
 ![](representation/seq-seq-pan-pipeline.png)
+
+
+## Pan-genome data structure
+For full representation of pan-genome and to be able to work with the data structure, only the .XMFA and the genome_description files are needed.
+
+.FASTA files can be discarded as all sequences can be extracted from the pan-genome, the consensus sequence can be constructed from the .XMFA file at any time.
