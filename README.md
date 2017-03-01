@@ -3,6 +3,7 @@
 
 ## Prerequisites
 This program was implemented in Python and requires Python3.4 or higher.
+It depends on the following Biopython modules: SeqIO, Seq, SeqRecord and pairwise2.
 
 Software required for running pipeline for set of genomes
 * snakemake
