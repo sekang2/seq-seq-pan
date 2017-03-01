@@ -22,7 +22,8 @@ else:
 
 if PREV_PAN != "":
      PREV_PAN = re.sub("\.xmfa$", "", PREV_PAN)
-    
+
+PMAUVE = config.get("pmauve", "progressiveMauve")
 
 ruleorder: use_prev_pan > resolve
 
@@ -163,7 +164,7 @@ rule align:
         cp {input.consensus[0]} $input
         cp {input.new} $input2
         
-        progressiveMauve $input $input2 --output={output[0]} > /dev/null
+        {PMAUVE} $input $input2 --output={output[0]} > /dev/null
         
         sed -i "s|$input|{input.consensus[0]}|g" {output[0]}
         sed -i "s|$input2|{input.new}|g" {output[0]}
