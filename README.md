@@ -111,6 +111,7 @@ snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_ne
 | outfilename |Prefix for all final output files.|
 | merge       |Optional, default = True. Do you want to include the merging steps?|
 | pangenome   |Path to exisiting pan-genome (pangenome.XMFA). Accompanying genome description file has to be present in same folder (pangenome_genomedescription.TXT).|
+| pmauve      |Optional, path to progressiveMauve executable. If not set, "progressiveMauve" is assumed to be included in $PATH.|
 
 ---
 
