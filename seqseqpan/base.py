@@ -87,7 +87,8 @@ class Alignment:
                 if entry is None:
                     break
 
-                invalid = (entry.start - last_end != 1)
+                invalid = (entry.start - last_end != 1
+                           or entry.end - entry.start + entry.sequence.count("-") + 1 != len(entry.sequence))
                 if invalid:
                     break
 
