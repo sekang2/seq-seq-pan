@@ -316,3 +316,50 @@ class Remover:
         else:
             raise ParameterError("remove_genome", rm_genome,
                                  "between 0 and " + str(len(alignment.genomes)) + " (number of genomes in XMFA)")
+
+    def merge(self, alignment):
+        for lcb in alignment.lcbs:
+            lcb.entries = sorted(lcb.entries, key=lambda entry: entry.genome_nr)
+        new_alignment = Alignment(alignment.xmfa_file)
+        for nr, genome in alignment.genomes.items():
+            new_alignment.add_genome(genome, nr)
+        for order in alignment.genomes:
+            if len(alignment.lcbs) > 1:  # if more than one lcb is unchecked try to merge
+                alignment.lcbs = alignment.get_sorted_lcbs(order)
+                j = 0
+                if alignment.lcbs[0].get_entry(order) is not None:
+                    new_alignment.add_lcb(alignment.lcbs[0])
+                    for lcb in range(1, len(alignment.lcbs)):
+                        j += 1
+                        if alignment.lcbs[lcb].get_entry(order) is not None:
+                            i = 0
+                            if len(alignment.lcbs[lcb].entries) == len(alignment.lcbs[lcb - 1].entries):
+                                strand = alignment.lcbs[lcb].entries[0].strand == alignment.lcbs[lcb - 1].entries[0].strand
+                                for entry in range(0, len(alignment.lcbs[lcb].entries)):
+                                    if alignment.lcbs[lcb].entries[entry].genome_nr != alignment.lcbs[lcb - 1].entries[entry].genome_nr \
+                                            or alignment.lcbs[lcb].entries[entry].start - alignment.lcbs[lcb - 1].entries[entry].end != 1 \
+                                            or (alignment.lcbs[lcb].entries[entry].strand ==alignment.lcbs[lcb - 1].entries[entry].strand) != strand:
+                                        # if an entry does not fulfill all conditions stop and do not merge this lcb
+                                        new_alignment.add_lcb(alignment.lcbs[lcb])
+                                        break
+                                    else:
+                                        i += 1
+                                if i == len(alignment.lcbs[lcb].entries):
+                                    if not strand:  # if all entries have an unequal strand reverse complement this lcb
+                                        alignment.lcbs[lcb].reverse_complement_entries()
+                                    new_alignment.lcbs[-1].length += alignment.lcbs[lcb].length
+                                    for pos in range(0, len(new_alignment.lcbs[-1].entries)):
+                                        new_alignment.lcbs[-1].entries[pos].sequence += alignment.lcbs[lcb].entries[pos].sequence
+                                        new_alignment.lcbs[-1].entries[pos].end = alignment.lcbs[lcb].entries[pos].end
+                            else:
+                                new_alignment.add_lcb(alignment.lcbs[lcb])
+                        else:
+                            break
+                alignment.lcbs[:] = alignment.lcbs[j:len(alignment.lcbs)]  # continue with unchecked lcbs
+            # if only one lcb left check whether it is already checked or not
+            elif len(alignment.lcbs) == 1 and new_alignment.lcbs[-1].entries[0].genome_nr != alignment.lcbs[0].entries[0].genome_nr:
+                new_alignment.add_lcb(alignment.lcbs[0])  # if not checked yet add it as last lcb and finish
+                break
+            else:
+                break
+        return new_alignment
