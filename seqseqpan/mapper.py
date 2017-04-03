@@ -7,8 +7,6 @@ from seqseqpan.exception import CoordinateOutOfBoundsError
 class Mapper:
     def map_coordinates(self, alignment, consensus, source, destinations, coordinates):
 
-        print("len(coordinates):" + str(len(coordinates)))
-
         if type(destinations) is not list:
             destinations = [destinations]
 

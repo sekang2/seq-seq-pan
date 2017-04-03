@@ -212,7 +212,7 @@ class Parser:
             header = in_file.readline().strip()
             source, dest = header.split("\t")
             dests = dest.split(",")
-            coords = [int(line.strip()) for line in in_file]
+            coords = [int(line.strip()) for line in in_file if line.strip() != '']
 
             if source == "" or dests == "" or len(dests) == 0 or len(coords) == 0:
                 raise CoordinatesInputError()

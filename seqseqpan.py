@@ -31,19 +31,18 @@ def main():
             print(e.message)
         else:
             try:
-                source, destinations, coordinates = parser.parse_mapping_coordinates(args.coord_f)
+                source, destinations_org, coordinates = parser.parse_mapping_coordinates(args.coord_f)
             except CoordinatesInputError as e:
                 print(e.message)
             else:
-                destinations.append(source)
-                destinations = list(set(destinations))
+                destinations = list(set(destinations_org))
                 try:
                     coords_dict = mapper.map_coordinates(sparse_align, sparse_consensus,
-                                                         source, destinations, coordinates)
+                                                         source, destinations_org, coordinates)
                 except CoordinateOutOfBoundsError as e:
                     print (e.message)
                 else:
-                    writer.write_mapping_coordinates(source, destinations, coords_dict, args.output_p, args.output_name)
+                    writer.write_mapping_coordinates(source, destinations_org, coords_dict, args.output_p, args.output_name)
     else:
         try:
             align = parser.parse_xmfa(args.xmfa_f)
