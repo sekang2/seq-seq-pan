@@ -14,6 +14,9 @@ class Mapper:
         coordinates = sorted(coordinates)
         coord_dict = defaultdict(dict)
 
+        if min(coordinates) < 1:
+            raise CoordinateOutOfBoundsError(min(coordinates),source)
+
         add_consensus = ("c" in destinations)
 
         # store and do not reorder!
@@ -24,12 +27,20 @@ class Mapper:
             destinations = sorted(destinations)[:-1]
 
         if source == "c":
+
+            cons_len = sum([l.length for l in lcbs])
+            if max(coordinates) > cons_len:  # coordinates higher than alignment length can't be mapped
+                raise CoordinateOutOfBoundsError(max(coordinates), source)
+
             i = 0
             for coord in coordinates:
-                if i % 1000 == 0:
-                    print(i)
+
                 idx = bisect.bisect_left(consensus.block_start_indices, coord)
                 idx -= 1
+
+                if idx >= len(lcbs):
+                    raise CoordinateOutOfBoundsError
+
                 lcb = lcbs[idx]
 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
@@ -44,11 +55,13 @@ class Mapper:
 
             source_blocks = {}
             # store ends of blocks for finding lcb for coords
-
             for i in range(len(lcbs)):
                 e = lcbs[i].get_entry(int(source))
                 if e is not None:
                     source_blocks[e.end] = {"lcb": i, "entry": e}
+
+            if max(coordinates) > max(source_blocks.keys()):  # coordinates higher than genome length can't be mapped
+                raise CoordinateOutOfBoundsError(max(coordinates), source)
 
             for coord in coordinates:
                 source_ends = sorted(source_blocks.keys())
