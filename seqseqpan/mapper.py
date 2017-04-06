@@ -73,7 +73,9 @@ class Mapper:
 
                 # check if dests other than consensus are needed
                 if len(destinations) > 0:
-                    pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps)
+                    # add 1 for get_position_within_entry_with_gaps as it works with one-based indices
+                    # subtract 1 afterwards as we are working with zero-based indices here
+                    pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps + 1 ) - 1
 
                     coord_dict[coord].update(self._get_coords_for_entries(lcb.entries, destinations, pos_within_block))
 
@@ -87,26 +89,19 @@ class Mapper:
 
                 is_gap = False
 
-                if e.strand == "+":
-                    e_gap_sublist = e.get_gap_sublist(0, pos_within_block)
-                    e_sum_gaps = 0
+                # gaps are always counted from the left, independent of strand!
+                e_gap_sublist = e.get_gap_sublist(0, pos_within_block)
+                e_sum_gaps = 0
 
-                    if len(e_gap_sublist) > 0:
-                        e_sum_gaps = sum(end - start for start, end in e_gap_sublist.items())
-                        last_gap = sorted(e_gap_sublist.items())[-1]
-                        is_gap = (last_gap[0] <= pos_within_block < last_gap[1])
+                if len(e_gap_sublist) > 0:
+                    e_sum_gaps = sum(end - start for start, end in e_gap_sublist.items())
+                    last_gap = sorted(e_gap_sublist.items())[-1]
+                    is_gap = (last_gap[0] <= pos_within_block < last_gap[1])
 
-                    if not is_gap:
+                if not is_gap:
+                    if e.strand == "+": # only position calculation with known gaps is dependent on strand!
                         coord_dict[str(e.genome_nr)] = e.start + (pos_within_block - e_sum_gaps)
-                else:
-                    e_gap_sublist = e.get_gap_sublist(e.end - pos_within_block, e.end)
-                    e_sum_gaps = 0
-                    if len(e_gap_sublist) > 0:
-                        e_sum_gaps = sum(end - start for start, end in e_gap_sublist.items())
-                        last_gap = sorted(e_gap_sublist.items())[-1]
-                        is_gap = (last_gap[0] <= pos_within_block < last_gap[1])
-
-                    if not is_gap:
+                    else:
                         coord_dict[str(e.genome_nr)] = (e.end - (pos_within_block - e_sum_gaps)) * -1
 
         return coord_dict

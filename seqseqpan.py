@@ -38,9 +38,9 @@ def main():
                 destinations = list(set(destinations_org))
                 try:
                     coords_dict = mapper.map_coordinates(sparse_align, sparse_consensus,
-                                                         source, destinations_org, coordinates)
+                                                         source, destinations, coordinates)
                 except CoordinateOutOfBoundsError as e:
-                    print (e.message)
+                    print(e.message)
                 else:
                     writer.write_mapping_coordinates(source, destinations_org, coords_dict, args.output_p, args.output_name)
     else:
