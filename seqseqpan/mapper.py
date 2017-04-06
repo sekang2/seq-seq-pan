@@ -76,16 +76,17 @@ class Mapper:
                 else:
                     pos_within_block_without_gaps = source_entry.end - coord
 
+                # add 1 for get_position_within_entry_with_gaps as it works with one-based indices
+                # subtract 1 afterwards as we are working with zero-based indices here
+                pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps + 1) - 1
+
                 # add consensus coordinates to dict
                 if add_consensus:
                     consensus_length = sum([lcb.length for lcb in lcbs[0:lcb_idx]])
-                    coord_dict[coord]["c"] = consensus_length + pos_within_block_without_gaps + 1
+                    coord_dict[coord]["c"] = consensus_length + pos_within_block + 1
 
                 # check if dests other than consensus are needed
                 if len(destinations) > 0:
-                    # add 1 for get_position_within_entry_with_gaps as it works with one-based indices
-                    # subtract 1 afterwards as we are working with zero-based indices here
-                    pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps + 1 ) - 1
 
                     coord_dict[coord].update(self._get_coords_for_entries(lcb.entries, destinations, pos_within_block))
 
