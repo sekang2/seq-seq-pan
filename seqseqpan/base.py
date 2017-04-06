@@ -255,8 +255,8 @@ class SequenceEntry:
         self.sequence = str(seq.reverse_complement())
 
     def get_position_within_entry_with_gaps(self, pos_within_block_without_gaps):
-        if pos_within_block_without_gaps == 1:
-            return pos_within_block_without_gaps
+      #  if pos_within_block_without_gaps == 1:  ## ?? why did I put this here?
+      #      return pos_within_block_without_gaps
 
         cur_nr_nongaps = 0
         pos_within_block = 0
