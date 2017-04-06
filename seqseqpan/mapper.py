@@ -38,9 +38,6 @@ class Mapper:
                 idx = bisect.bisect_left(consensus.block_start_indices, coord)
                 idx -= 1
 
-                if idx >= len(lcbs):
-                    raise CoordinateOutOfBoundsError
-
                 lcb = lcbs[idx]
 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
