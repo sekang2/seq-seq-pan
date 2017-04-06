@@ -35,7 +35,7 @@ def main():
             except CoordinatesInputError as e:
                 print(e.message)
             else:
-                destinations = list(set(destinations_org))
+                destinations = list(set(destinations_org)) + [source]
                 try:
                     coords_dict = mapper.map_coordinates(sparse_align, sparse_consensus,
                                                          source, destinations, coordinates)
