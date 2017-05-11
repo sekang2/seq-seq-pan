@@ -28,8 +28,9 @@ class Splitter:
             chrom_starts = self.get_chromosomes_for_entry(entry)
             starts = chrom_starts
             starts[0] = entry.start
-            split_coords.extend(
-                [entry.get_position_within_entry_with_gaps((chrom_start - entry.start) + 1) for chrom_start in chrom_starts])
+            if len(starts) > 1:
+                split_coords.extend(
+                    [entry.get_position_within_entry_with_gaps((chrom_start - entry.start) + 1) for chrom_start in chrom_starts])
 
         split_coords = sorted(list(set(split_coords)))
 
