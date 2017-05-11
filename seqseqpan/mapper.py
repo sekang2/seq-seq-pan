@@ -14,6 +14,9 @@ class Mapper:
         coordinates = sorted(coordinates)
         coord_dict = defaultdict(dict)
 
+        if min(coordinates) < 1:
+            raise CoordinateOutOfBoundsError(min(coordinates),source)
+
         add_consensus = ("c" in destinations)
 
         # store and do not reorder!
@@ -24,12 +27,17 @@ class Mapper:
             destinations = sorted(destinations)[:-1]
 
         if source == "c":
+
+            cons_len = sum([l.length for l in lcbs])
+            if max(coordinates) > cons_len:  # coordinates higher than alignment length can't be mapped
+                raise CoordinateOutOfBoundsError(max(coordinates), source)
+
             i = 0
             for coord in coordinates:
-                if i % 1000 == 0:
-                    print(i)
+
                 idx = bisect.bisect_left(consensus.block_start_indices, coord)
                 idx -= 1
+
                 lcb = lcbs[idx]
 
                 # calculate position within current consensus block - there are no gaps in consensus sequence!
@@ -44,11 +52,13 @@ class Mapper:
 
             source_blocks = {}
             # store ends of blocks for finding lcb for coords
-
             for i in range(len(lcbs)):
                 e = lcbs[i].get_entry(int(source))
                 if e is not None:
                     source_blocks[e.end] = {"lcb": i, "entry": e}
+
+            if max(coordinates) > max(source_blocks.keys()):  # coordinates higher than genome length can't be mapped
+                raise CoordinateOutOfBoundsError(max(coordinates), source)
 
             for coord in coordinates:
                 source_ends = sorted(source_blocks.keys())
@@ -66,17 +76,17 @@ class Mapper:
                 else:
                     pos_within_block_without_gaps = source_entry.end - coord
 
+                # add 1 for get_position_within_entry_with_gaps as it works with one-based indices
+                # subtract 1 afterwards as we are working with zero-based indices here
+                pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps + 1) - 1
+
                 # add consensus coordinates to dict
                 if add_consensus:
                     consensus_length = sum([lcb.length for lcb in lcbs[0:lcb_idx]])
-                    coord_dict[coord]["c"] = consensus_length + pos_within_block_without_gaps + 1
+                    coord_dict[coord]["c"] = consensus_length + pos_within_block + 1
 
                 # check if dests other than consensus are needed
                 if len(destinations) > 0:
-                    # add 1 for get_position_within_entry_with_gaps as it works with one-based indices
-                    # subtract 1 afterwards as we are working with zero-based indices here
-                    pos_within_block = source_entry.get_position_within_entry_with_gaps(pos_within_block_without_gaps + 1 ) - 1
-
                     coord_dict[coord].update(self._get_coords_for_entries(lcb.entries, destinations, pos_within_block))
 
         return coord_dict

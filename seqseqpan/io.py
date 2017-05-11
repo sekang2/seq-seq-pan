@@ -316,7 +316,7 @@ class Writer:
             output.write("\n")
 
             for coord, cur_dict in sorted(coords_dict.items()):
-                output.write(str(coord) + "\t")
+                output.write(str(cur_dict[source]) + "\t")
                 new_coords = [str(cur_dict.get(dest, "-")) for dest in destinations]
                 output.write('\t'.join(new_coords))
                 output.write("\n")

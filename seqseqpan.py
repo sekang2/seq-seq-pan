@@ -35,7 +35,7 @@ def main():
             except CoordinatesInputError as e:
                 print(e.message)
             else:
-                destinations = list(set(destinations_org))
+                destinations = list(set(destinations_org)) + [source]
                 try:
                     coords_dict = mapper.map_coordinates(sparse_align, sparse_consensus,
                                                          source, destinations, coordinates)
@@ -62,8 +62,9 @@ def main():
 
                 elif args.task == "remove":
                     remove = remover.remove(align, args.rm_genome)
+                    merge = remover.merge(remove)
 
-                    writer.write_xmfa(remove, args.output_p, args.output_name + "_removed", args.order)
+                    writer.write_xmfa(merge, args.output_p, args.output_name + "_removed", args.order)
 
                 elif args.task == "extract":
                     region = args.region

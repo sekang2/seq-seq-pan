@@ -56,7 +56,7 @@ class ConsensusFastaIdxFormatError(InputError):
 class CoordinateOutOfBoundsError(InputError):
     def __init__(self, coord, source):
         source = "consensus" if source == "c" else str(source)
-        self.message = "ERROR: Position (" + str(coord) + ") not part of sequence (" + source + ".)"
+        self.message = "ERROR: Position '" + str(coord) + "' not part of genome '" + source + "'."
 
 
 class CoordinatesInputError(InputError):
