@@ -5,9 +5,12 @@ import sys
 
 from Bio import pairwise2
 
+from skbio.alignment import local_pairwise_align_ssw, global_pairwise_align
+from skbio import DNA
+
 from seqseqpan.exception import ConsensusXMFAInputError
 from seqseqpan.base import *
-
+import pdb
 
 class Separator:
     def separate_lcbs(self, alignment, length):
@@ -153,6 +156,39 @@ class Realigner:
                    ('N', 'H'): -1, ('N', 'D'): -1, ('N', 'B'): -1
                    }
 
+    _sub_matrix_dict = {
+        'A': {'A': 5, 'C': -4, 'G': -4, 'T': -4, 'M': 1, 'R': 1, 'W': 1, 'S': -4, 'Y': -4, 'K': -4, 'V': -1, 'H': -1,
+              'D': -1, 'B': -4, 'N': -1},
+        'C': {'A': -4, 'C': 5, 'G': -4, 'T': -4, 'M': 1, 'R': -4, 'W': -4, 'S': 1, 'Y': 1, 'K': -4, 'V': -1, 'H': -1,
+              'D': -4, 'B': -1, 'N': -1},
+        'G': {'A': -4, 'C': -4, 'G': 5, 'T': -4, 'M': -4, 'R': 1, 'W': -4, 'S': 1, 'Y': -4, 'K': 1, 'V': -1, 'H': -4,
+              'D': -1, 'B': -1, 'N': -1},
+        'T': {'A': -4, 'C': -4, 'G': -4, 'T': 5, 'M': -4, 'R': -4, 'W': 1, 'S': -4, 'Y': 1, 'K': 1, 'V': -4, 'H': -1,
+              'D': -1, 'B': -1, 'N': -1},
+        'M': {'A': 1, 'C': 1, 'G': -4, 'T': -4, 'M': -1, 'R': -2, 'W': -2, 'S': -2, 'Y': -2, 'K': -4, 'V': -1, 'H': -1,
+              'D': -3, 'B': -3, 'N': -1},
+        'R': {'A': 1, 'C': -4, 'G': 1, 'T': -4, 'M': -2, 'R': -1, 'W': -2, 'S': -2, 'Y': -4, 'K': -2, 'V': -1, 'H': -3,
+              'D': -1, 'B': -3, 'N': -1},
+        'W': {'A': 1, 'C': -4, 'G': -2, 'T': -4, 'M': -2, 'R': -2, 'W': -1, 'S': -4, 'Y': -2, 'K': -2, 'V': -3, 'H': -1,
+              'D': -1, 'B': -3, 'N': -1},
+        'S': {'A': -4, 'C': 1, 'G': 1, 'T': -4, 'M': -2, 'R': -2, 'W': -4, 'S': -1, 'Y': -2, 'K': -2, 'V': -1, 'H': -3,
+              'D': -3, 'B': -1, 'N': -1},
+        'Y': {'A': -4, 'C': 1, 'G': -4, 'T': 1, 'M': -2, 'R': -4, 'W': -2, 'S': -2, 'Y': -1, 'K': -2, 'V': -3, 'H': -1,
+              'D': -3, 'B': -1, 'N': -1},
+        'K': {'A': -4, 'C': -4, 'G': 1, 'T': 1, 'M': -4, 'R': -2, 'W': -2, 'S': -2, 'Y': -2, 'K': -1, 'V': -3, 'H': -3,
+              'D': -1, 'B': -1, 'N': -1},
+        'V': {'A': -1, 'C': -1, 'G': -1, 'T': -4, 'M': -1, 'R': -1, 'W': -3, 'S': -1, 'Y': -3, 'K': -3, 'V': -1,
+              'H': -2, 'D': -2, 'B': -2, 'N': -1},
+        'H': {'A': -1, 'C': -1, 'G': -4, 'T': -1, 'M': -1, 'R': -3, 'W': -1, 'S': -3, 'Y': -1, 'K': -3, 'V': -2,
+              'H': -1, 'D': -2, 'B': -2, 'N': -1},
+        'D': {'A': -1, 'C': -4, 'G': -1, 'T': -1, 'M': -3, 'R': -1, 'W': -1, 'S': -3, 'Y': -3, 'K': -1, 'V': -1,
+              'H': -2, 'D': -1, 'B': -2, 'N': -1},
+        'B': {'A': -4, 'C': -1, 'G': -1, 'T': -1, 'M': -3, 'R': -3, 'W': -3, 'S': -1, 'Y': -1, 'K': -1, 'V': -2,
+              'H': -2, 'D': -2, 'B': -1, 'N': -1},
+        'N': {'A': -2, 'C': -2, 'G': -2, 'T': -2, 'M': -1, 'R': -1, 'W': -1, 'S': -1, 'Y': -1, 'K': -1, 'V': -1,
+              'H': -1, 'D': -1, 'B': -1, 'N': -1}}
+
+
     # local realignment around overlapping or consecutive gaps in two sequences
     def realign(self, alignment):
         if len(alignment.genomes) > 2:
@@ -164,6 +200,7 @@ class Realigner:
 
         # go through lcbs, skip one-entry ones
         for lcb in alignment.get_sorted_lcbs(0):
+
             if len(lcb.entries) == 1:
                 realigned.add_lcb(lcb)
             else:
@@ -206,41 +243,129 @@ class Realigner:
         return regions
 
     def _realign(self, seq_one, seq_two, realign_regions):
-
+        #pdb.set_trace()
         realign_regions = sorted(realign_regions)
 
+        # offset for coordinates if sequences are changed due to alignment
         index_offset = 0
 
         for interval in realign_regions:
+            #print(interval)
+
+            #find start index and length of interval
             min_index, min_seq_length = min(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
                                             key=lambda p: p[1])
 
-            if min_seq_length < 10:
+            #if min_seq_length < 16000:
+            #print("\n")
 
-                min_seq_length *= 2
+            #print(min_seq_length)
+            # double for more information
+            min_seq_length *= 2
 
-                seq_start = interval[min_index][0] - index_offset - min_seq_length
-                seq_end = interval[min_index][1] - index_offset + min_seq_length
+            # get sequence left and right of consecutive gap
+            seq_start = interval[min_index][0] - index_offset - min_seq_length
+            seq_end = interval[min_index][1] - index_offset + min_seq_length
 
-                # do not go over boundaries of sequences!
-                seq_start = max(seq_start, 0)
-                min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
-                seq_end = min(seq_end, min_orig_seq_length)
 
-                alignments = pairwise2.align.globalds(seq_one[seq_start:seq_end].replace("-", "").upper(),
-                                                      seq_two[seq_start:seq_end].replace("-", "").upper(),
-                                                      self._sub_matrix, -0.5, -0.1, one_alignment_only=True)
-                if len(alignments) > 0:
-                    max_score = max([x[2] for x in alignments])
-                    alignments = (lambda max_score=max_score: [item for item in alignments if item[2] == max_score])()
+            # do not go over boundaries of sequences!
+            seq_start = max(seq_start, 0)
+            min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
+            seq_end = min(seq_end, min_orig_seq_length)
 
-                    min_length = min([x[4] for x in alignments])
-                    alignments = (lambda min_length=min_length: [item for item in alignments if item[4] == min_length])()
+            #alignments = pairwise2.align.globalds(seq_one[seq_start:seq_end].replace("-", "").upper(),
+            #                                      seq_two[seq_start:seq_end].replace("-", "").upper(),
+            #                                      self._sub_matrix, -0.5, -0.1, one_alignment_only=True)
 
-                    seq_one = alignments[0][0].join([seq_one[:seq_start], seq_one[seq_end:]])
-                    seq_two = alignments[0][1].join([seq_two[:seq_start], seq_two[seq_end:]])
+            #print(seq_one[seq_start:seq_end])
+            #print(seq_two[seq_start:seq_end])
 
-                    index_offset += ((seq_end - seq_start) - min_length)
+            seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
+            seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
+
+            #swap = False
+            #if len(seq_two_nogap) > len(seq_one_nogap):
+            #    swap = True
+            #    seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
+
+            #print(seq_one_nogap)
+            #print(seq_two_nogap)
+
+            if not (seq_one_nogap == '' or seq_two_nogap == ''):
+
+                try:
+                    # fast local alignment
+                    alignment, score, positions = local_pairwise_align_ssw(
+                        DNA(seq_one_nogap.upper()),
+                        DNA(seq_two_nogap.upper())#,
+                        #substitution_matrix=self._sub_matrix_dict
+                    )
+                except IndexError as e:
+                    pass
+                else:
+                    #locally aligned sequences
+                    #if swap:
+                    #aln_seq1 = str(alignment.iloc(axis='sequence')[1])
+                    #aln_seq2 = str(alignment.iloc(axis='sequence')[0])
+
+                    #aln_start1, aln_end1 = positions[1]
+                    #aln_start2, aln_end2 = positions[0]
+
+                    #seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
+                    #else:
+                    aln_seq1 = str(alignment.iloc(axis='sequence')[0])
+                    aln_seq2 = str(alignment.iloc(axis='sequence')[1])
+
+                    aln_start1, aln_end1 = positions[0]
+                    aln_start2, aln_end2 = positions[1]
+
+
+
+                   # print(aln_seq1)
+                   # print(aln_seq2)
+
+                    # remove overlapping gaps in alignment (why are they even there?!?)
+                    rm_indices = [i for i in range(len(aln_seq1)) if aln_seq1[i] == "-" and aln_seq2[i] == "-"]
+                    aln_seq1 = "".join([char for idx, char in enumerate(aln_seq1) if idx not in rm_indices])
+                    aln_seq2 = "".join([char for idx, char in enumerate(aln_seq2) if idx not in rm_indices])
+
+                   # print(aln_seq1)
+                   # print(aln_seq2)
+
+                    # add sequences before and after local match to alignment
+
+                    post_aln_len1 = len(seq_one_nogap) - aln_end1 - 1
+                    post_aln_len2 = len(seq_two_nogap) - aln_end2 - 1
+
+                    if aln_start2 > 0:
+                        aln_seq1 = aln_start2*"-" + aln_seq1
+                        aln_seq2 = seq_two_nogap[0:(aln_start2)] + aln_seq2
+
+                    if aln_start1 > 0:
+                        aln_seq1 = seq_one_nogap[0:(aln_start1)] + aln_seq1
+                        aln_seq2 = aln_start1*"-" + aln_seq2
+
+                    if post_aln_len1 > 0:
+                        aln_seq1 += seq_one_nogap[(aln_end1+1):]
+                        aln_seq2 += post_aln_len1*"-"
+
+                    if post_aln_len2 > 0:
+                        aln_seq1 += post_aln_len2*"-"
+                        aln_seq2 += seq_two_nogap[(aln_end2+1):]
+
+
+                   # print(aln_seq1)
+                   # print(aln_seq2)
+
+                   # print("\n\n")
+
+                    # update entry sequences with better alignment
+                    aln_length = len(aln_seq1)
+
+                    seq_one = aln_seq1.join([seq_one[:seq_start], seq_one[seq_end:]])
+                    seq_two = aln_seq2.join([seq_two[:seq_start], seq_two[seq_end:]])
+
+                    index_offset += ((seq_end - seq_start) - aln_length)
 
         return seq_one, seq_two
 
