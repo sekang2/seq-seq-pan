@@ -250,122 +250,124 @@ class Realigner:
         index_offset = 0
 
         for interval in realign_regions:
-            #print(interval)
-
-            #find start index and length of interval
+            # find start index and length of interval
             min_index, min_seq_length = min(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
                                             key=lambda p: p[1])
 
-            #if min_seq_length < 16000:
-            #print("\n")
 
-            #print(min_seq_length)
-            # double for more information
-            min_seq_length *= 2
 
+            # !!!!!  do not stretch sequence over block borders from previous alignment!!!!
+            # --> need consensus as input for block borders
+
+
+
+
+            print(min_seq_length)
             # get sequence left and right of consecutive gap
-            seq_start = interval[min_index][0] - index_offset - min_seq_length
-            seq_end = interval[min_index][1] - index_offset + min_seq_length
 
+            interval_start = interval[min_index][0] - index_offset
+            interval_end = interval[min_index][1] - index_offset
 
-            # do not go over boundaries of sequences!
-            seq_start = max(seq_start, 0)
-            min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
-            seq_end = min(seq_end, min_orig_seq_length)
+            # check if interval only 'N' - if yes: do not realign
+            n_stretch = 'N' * min_seq_length
+            if not (seq_one[interval_start:interval_end] == n_stretch or seq_two[interval_start:interval_end] == n_stretch):
 
-            #alignments = pairwise2.align.globalds(seq_one[seq_start:seq_end].replace("-", "").upper(),
-            #                                      seq_two[seq_start:seq_end].replace("-", "").upper(),
-            #                                      self._sub_matrix, -0.5, -0.1, one_alignment_only=True)
+                # get surrounding sequences
+                seq_start = interval_start - min_seq_length
+                seq_end = interval_end + min_seq_length
 
-            #print(seq_one[seq_start:seq_end])
-            #print(seq_two[seq_start:seq_end])
+                # do not go over boundaries of sequences!
+                seq_start = max(seq_start, 0)
+                min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
+                seq_end = min(seq_end, min_orig_seq_length)
 
-            seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
-            seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
+                # N-stretches in sequences
+                #  find N-stretch between start and interval and start sub-sequence after nearest stretch
+                n_stretch_length = 10
+                n_stretch = 'N' * n_stretch_length
+                n_stretch_idx = seq_one.rfind(n_stretch, seq_start, interval_start) + n_stretch_length
+                seq_start = max(seq_start, n_stretch_idx)
+                n_stretch_idx = seq_two.rfind(n_stretch, seq_start, interval_start) + n_stretch_length
+                seq_start = max(seq_start, n_stretch_idx)
 
-            #swap = False
-            #if len(seq_two_nogap) > len(seq_one_nogap):
-            #    swap = True
-            #    seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
+                #  find N-stretch between interval and end  and end sub-sequence before nearest stretch
+                n_stretch_idx_one = seq_one.find(n_stretch, interval_end, seq_end)
+                n_stretch_idx_two = seq_two.find(n_stretch, interval_end, seq_end)
 
-            #print(seq_one_nogap)
-            #print(seq_two_nogap)
+                seq_end = min(seq_end,
+                              (n_stretch_idx_one if n_stretch_idx_one > -1 else seq_end),
+                              (n_stretch_idx_two if n_stretch_idx_two > -1 else seq_end)
+                              )
 
-            if not (seq_one_nogap == '' or seq_two_nogap == ''):
+                seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
+                seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
 
-                try:
-                    # fast local alignment
-                    alignment, score, positions = local_pairwise_align_ssw(
-                        DNA(seq_one_nogap.upper()),
-                        DNA(seq_two_nogap.upper())#,
-                        #substitution_matrix=self._sub_matrix_dict
-                    )
-                except IndexError as e:
-                    pass
-                else:
-                    #locally aligned sequences
-                    #if swap:
-                    #aln_seq1 = str(alignment.iloc(axis='sequence')[1])
-                    #aln_seq2 = str(alignment.iloc(axis='sequence')[0])
+                swap = False
+                if len(seq_one_nogap) < len(seq_two_nogap):
+                    seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
+                    swap = True
 
-                    #aln_start1, aln_end1 = positions[1]
-                    #aln_start2, aln_end2 = positions[0]
+                print(seq_one_nogap)
+                print(seq_two_nogap)
+                print("\n")
 
-                    #seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
-                    #else:
-                    aln_seq1 = str(alignment.iloc(axis='sequence')[0])
-                    aln_seq2 = str(alignment.iloc(axis='sequence')[1])
+                if not (seq_one_nogap == '' or seq_two_nogap == ''):
+                    try:
+                        # fast local alignment
+                        alignment, score, positions = local_pairwise_align_ssw(
+                            DNA(seq_one_nogap.upper()),
+                            DNA(seq_two_nogap.upper())
+                        )
+                    except IndexError as e:
+                        pass
+                    else:
+                        if swap:
+                            aln_seq1 = str(alignment.iloc(axis='sequence')[1])
+                            aln_seq2 = str(alignment.iloc(axis='sequence')[0])
 
-                    aln_start1, aln_end1 = positions[0]
-                    aln_start2, aln_end2 = positions[1]
+                            aln_start1, aln_end1 = positions[1]
+                            aln_start2, aln_end2 = positions[0]
 
+                            seq_one_nogap, seq_two_nogap = seq_two_nogap, seq_one_nogap
+                        else:
+                            aln_seq1 = str(alignment.iloc(axis='sequence')[0])
+                            aln_seq2 = str(alignment.iloc(axis='sequence')[1])
 
+                            aln_start1, aln_end1 = positions[0]
+                            aln_start2, aln_end2 = positions[1]
 
-                   # print(aln_seq1)
-                   # print(aln_seq2)
+                        # remove overlapping gaps in alignment (why are they even there?!?)
+                        rm_indices = [i for i in range(len(aln_seq1)) if aln_seq1[i] == "-" and aln_seq2[i] == "-"]
+                        aln_seq1 = "".join([char for idx, char in enumerate(aln_seq1) if idx not in rm_indices])
+                        aln_seq2 = "".join([char for idx, char in enumerate(aln_seq2) if idx not in rm_indices])
 
-                    # remove overlapping gaps in alignment (why are they even there?!?)
-                    rm_indices = [i for i in range(len(aln_seq1)) if aln_seq1[i] == "-" and aln_seq2[i] == "-"]
-                    aln_seq1 = "".join([char for idx, char in enumerate(aln_seq1) if idx not in rm_indices])
-                    aln_seq2 = "".join([char for idx, char in enumerate(aln_seq2) if idx not in rm_indices])
+                        # add sequences before and after local match to alignment
+                        post_aln_len1 = len(seq_one_nogap) - aln_end1 - 1
+                        post_aln_len2 = len(seq_two_nogap) - aln_end2 - 1
 
-                   # print(aln_seq1)
-                   # print(aln_seq2)
+                        if aln_start2 > 0:
+                            aln_seq1 = aln_start2*"-" + aln_seq1
+                            aln_seq2 = seq_two_nogap[0:(aln_start2)] + aln_seq2
 
-                    # add sequences before and after local match to alignment
+                        if aln_start1 > 0:
+                            aln_seq1 = seq_one_nogap[0:(aln_start1)] + aln_seq1
+                            aln_seq2 = aln_start1*"-" + aln_seq2
 
-                    post_aln_len1 = len(seq_one_nogap) - aln_end1 - 1
-                    post_aln_len2 = len(seq_two_nogap) - aln_end2 - 1
+                        if post_aln_len1 > 0:
+                            aln_seq1 += seq_one_nogap[(aln_end1+1):]
+                            aln_seq2 += post_aln_len1*"-"
 
-                    if aln_start2 > 0:
-                        aln_seq1 = aln_start2*"-" + aln_seq1
-                        aln_seq2 = seq_two_nogap[0:(aln_start2)] + aln_seq2
+                        if post_aln_len2 > 0:
+                            aln_seq1 += post_aln_len2*"-"
+                            aln_seq2 += seq_two_nogap[(aln_end2+1):]
 
-                    if aln_start1 > 0:
-                        aln_seq1 = seq_one_nogap[0:(aln_start1)] + aln_seq1
-                        aln_seq2 = aln_start1*"-" + aln_seq2
+                        # update entry sequences with better alignment
+                        aln_length = len(aln_seq1)
 
-                    if post_aln_len1 > 0:
-                        aln_seq1 += seq_one_nogap[(aln_end1+1):]
-                        aln_seq2 += post_aln_len1*"-"
+                        seq_one = aln_seq1.join([seq_one[:seq_start], seq_one[seq_end:]])
+                        seq_two = aln_seq2.join([seq_two[:seq_start], seq_two[seq_end:]])
 
-                    if post_aln_len2 > 0:
-                        aln_seq1 += post_aln_len2*"-"
-                        aln_seq2 += seq_two_nogap[(aln_end2+1):]
-
-
-                   # print(aln_seq1)
-                   # print(aln_seq2)
-
-                   # print("\n\n")
-
-                    # update entry sequences with better alignment
-                    aln_length = len(aln_seq1)
-
-                    seq_one = aln_seq1.join([seq_one[:seq_start], seq_one[seq_end:]])
-                    seq_two = aln_seq2.join([seq_two[:seq_start], seq_two[seq_end:]])
-
-                    index_offset += ((seq_end - seq_start) - aln_length)
+                        index_offset += ((seq_end - seq_start) - aln_length)
 
         return seq_one, seq_two
 
