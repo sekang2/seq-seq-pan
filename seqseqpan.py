@@ -4,7 +4,7 @@ import argparse
 import sys
 import pdb
 
-from seqseqpan.io import Parser, Writer
+from seqseqpan.io import Parser, Writer, Processor
 from seqseqpan.modifier import Realigner, Merger, Separator, Remover
 from seqseqpan.formatter import Splitter
 from seqseqpan.resolver import Resolver
@@ -23,6 +23,7 @@ def main():
     merger = Merger()
     separator = Separator()
     remover = Remover()
+    processor = Processor(args.output_p)
 
     if args.task == "map":
         try:
@@ -94,7 +95,7 @@ def main():
 
                 elif args.task == "realign":
                     try:
-                        realign = realigner.realign(align)
+                        realign = realigner.realign(align, processor)
                     except ConsensusXMFAInputError as e:
                         print(e.message)
                     else:
@@ -145,7 +146,7 @@ def main():
                             res_merge = merger.merge_lcbs(res_merge, consensus_genome_nr=new_genome_nr,
                                                           new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
-                            resolveblocks_align = realigner.realign(res_merge)
+                            resolveblocks_align = realigner.realign(res_merge, processor)
 
                         reconstruct_align = resolver.reconstruct_alignment(resolveblocks_align, consensus, org_align,
                                                                            consensus_genome_nr=consensus_genome_nr,
