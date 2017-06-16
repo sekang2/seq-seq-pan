@@ -420,7 +420,8 @@ class Processor:
             else:
                 raise ValueError()
         except ValueError as e:
-            pass # no alignment --> just return full sequences
+            # no alignment --> return None, so full sequences will be used
+            return None, None
         else:
             # seq_one equals hit   seq_two equals query
 
@@ -497,13 +498,13 @@ class Processor:
             #print(len(seq_aln_one) == len(seq_aln_two) )
 
             return "".join(seq_one_list).upper(), "".join(seq_two_list).upper()
+
         finally:
             # no alignment detected
-            with contextlib.suppress(FileNotFoundError): # in case files were never created...
+            with contextlib.suppress(FileNotFoundError):  # in case files were never created...
                 os.remove(filename_one)
                 os.remove(filename_two)
                 os.remove(output_file)
-            return None, None
 
 
 

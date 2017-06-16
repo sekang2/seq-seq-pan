@@ -1,7 +1,9 @@
 import collections
 import itertools
 from operator import itemgetter
+import math
 import sys
+import pdb
 
 from Bio import pairwise2
 
@@ -124,35 +126,6 @@ class Merger:
 
 
 class Realigner:
-    _sub_matrix = {('A', 'A'): 5,
-                   ('C', 'C'): 5, ('C', 'A'): -4,
-                   ('G', 'G'): 5, ('G', 'A'): -4, ('G', 'C'): -4,
-                   ('T', 'T'): 5, ('T', 'A'): -4, ('T', 'C'): -4, ('T', 'G'): -4,
-                   ('M', 'M'): -1, ('M', 'A'): 1, ('M', 'C'): 1, ('M', 'G'): -4, ('M', 'T'): -4,
-                   ('R', 'R'): -1, ('R', 'A'): 1, ('R', 'C'): -4, ('R', 'G'): 1, ('R', 'T'): -4, ('R', 'M'): -2,
-                   ('W', 'W'): -1, ('W', 'A'): 1, ('W', 'C'): -4, ('W', 'G'): -4, ('W', 'T'): 1, ('W', 'M'): -2,
-                   ('W', 'R'): -2,
-                   ('S', 'S'): -1, ('S', 'A'): -4, ('S', 'C'): 1, ('S', 'G'): 1, ('S', 'T'): -4, ('S', 'M'): -2,
-                   ('S', 'R'): -2, ('S', 'W'): -4,
-                   ('Y', 'Y'): -1, ('Y', 'A'): -4, ('Y', 'C'): 1, ('Y', 'G'): -4, ('Y', 'T'): 1, ('Y', 'M'): -2,
-                   ('Y', 'R'): -4, ('Y', 'W'): -2, ('Y', 'S'): -2,
-                   ('K', 'K'): -1, ('K', 'A'): -4, ('K', 'C'): -4, ('K', 'G'): 1, ('K', 'T'): 1, ('K', 'M'): -4,
-                   ('K', 'R'): -2, ('K', 'W'): -2, ('K', 'S'): -2, ('K', 'Y'): -2,
-                   ('V', 'V'): -1, ('V', 'A'): -1, ('V', 'C'): -1, ('V', 'G'): -1, ('V', 'T'): -4, ('V', 'M'): -1,
-                   ('V', 'R'): -1, ('V', 'W'): -3, ('V', 'S'): -1, ('V', 'Y'): -3, ('V', 'K'): -3,
-                   ('H', 'H'): -1, ('H', 'A'): -1, ('H', 'C'): -1, ('H', 'G'): -4, ('H', 'T'): -1, ('H', 'M'): -1,
-                   ('H', 'R'): -3, ('H', 'W'): -1, ('H', 'S'): -3, ('H', 'Y'): -1, ('H', 'K'): -3, ('H', 'V'): -2,
-                   ('D', 'D'): -1, ('D', 'A'): -1, ('D', 'C'): -4, ('D', 'G'): -1, ('D', 'T'): -1, ('D', 'M'): -3,
-                   ('D', 'R'): -1, ('D', 'W'): -1, ('D', 'S'): -3, ('D', 'Y'): -3, ('D', 'K'): -1, ('D', 'V'): -2,
-                   ('D', 'H'): -2,
-                   ('B', 'B'): -1, ('B', 'A'): -4, ('B', 'C'): -1, ('B', 'G'): -1, ('B', 'T'): -1, ('B', 'M'): -3,
-                   ('B', 'R'): -3, ('B', 'W'): -3, ('B', 'S'): -1, ('B', 'Y'): -1, ('B', 'K'): -1, ('B', 'V'): -2,
-                   ('B', 'H'): -2, ('B', 'D'): -2,
-                   ('N', 'N'): -1, ('N', 'A'): -2, ('N', 'C'): -2, ('N', 'G'): -2, ('N', 'T'): -2, ('N', 'M'): -1,
-                   ('N', 'R'): -1, ('N', 'W'): -1, ('N', 'S'): -1, ('N', 'Y'): -1, ('N', 'K'): -1, ('N', 'V'): -1,
-                   ('N', 'H'): -1, ('N', 'D'): -1, ('N', 'B'): -1
-                   }
-
     # local realignment around overlapping or consecutive gaps in two sequences
     def realign(self, alignment, processor):
         if len(alignment.genomes) > 2:
@@ -164,6 +137,7 @@ class Realigner:
 
         # go through lcbs, skip one-entry ones
         for lcb in alignment.get_sorted_lcbs(0):
+
             if len(lcb.entries) == 1:
                 realigned.add_lcb(lcb)
             else:
@@ -206,42 +180,44 @@ class Realigner:
         return regions
 
     def _realign(self, seq_one, seq_two, realign_regions, processor):
-
         realign_regions = sorted(realign_regions)
 
         index_offset = 0
 
         for interval in realign_regions:
-            min_index, min_seq_length = min(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
+            max_index, max_seq_length = max(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
                                             key=lambda p: p[1])
 
-            interval_start = interval[min_index][0] - index_offset
-            interval_end = interval[min_index][1] - index_offset
+            interval_start = interval[max_index][0] - index_offset
+            interval_end = interval[max_index][1] - index_offset
 
             # check if interval only 'N' - if yes: do not realign
-            n_stretch = 'N' * min_seq_length
+            n_stretch = 'N' * max_seq_length
             if not (seq_one[interval_start:interval_end] == n_stretch or
                     seq_two[interval_start:interval_end] == n_stretch):
 
-                min_seq_length *= 2
+                max_seq_length = math.ceil(max_seq_length*1.5)
 
                 # get surrounding sequences
-                seq_start = interval_start - min_seq_length
-                seq_end = interval_end + min_seq_length
+                seq_start = interval_start - max_seq_length
+                seq_end = interval_end + max_seq_length
 
                 # do not go over boundaries of sequences!
                 seq_start = max(seq_start, 0)
-                min_orig_seq_length = min(len(seq_one), len(seq_two)) - 1
+                min_orig_seq_length = min(len(seq_one), len(seq_two))
                 seq_end = min(seq_end, min_orig_seq_length)
 
                 # N-stretches in sequences
                 #  find N-stretch between start and interval and start sub-sequence after nearest stretch
                 n_stretch_length = 10
                 n_stretch = 'N' * n_stretch_length
-                n_stretch_idx = seq_one.rfind(n_stretch, seq_start, interval_start) + n_stretch_length
-                seq_start = max(seq_start, n_stretch_idx)
-                n_stretch_idx = seq_two.rfind(n_stretch, seq_start, interval_start) + n_stretch_length
-                seq_start = max(seq_start, n_stretch_idx)
+                n_stretch_idx = seq_one.rfind(n_stretch, seq_start, interval_start)
+
+                if n_stretch_idx > -1:
+                    seq_start = max(seq_start, (n_stretch_idx + n_stretch_length))
+                n_stretch_idx = seq_two.rfind(n_stretch, seq_start, interval_start)
+                if n_stretch_idx > -1:
+                    seq_start = max(seq_start, ( n_stretch_idx + n_stretch_length))
 
                 #  find N-stretch between interval and end  and end sub-sequence before nearest stretch
                 n_stretch_idx_one = seq_one.find(n_stretch, interval_end, seq_end)
@@ -257,17 +233,16 @@ class Realigner:
 
                 if not (seq_one_nogap == '' or seq_two_nogap == ''): # else: do nothing for current interval
                     if (seq_end - seq_start) < 1000:
-                        alignments = pairwise2.align.globalxs(seq_one_nogap.replace("-", "").upper(),
-                                                              seq_two_nogap.replace("-", "").upper(),
-                                                              #self._sub_matrix,
+                        alignments = pairwise2.align.globalxs(seq_one_nogap.upper(),
+                                                              seq_two_nogap.upper(),
                                                               -0.5, -0.1,
                                                               one_alignment_only=True)
                         if len(alignments) > 0:
                             max_score = max([x[2] for x in alignments])
                             alignments = (lambda max_score=max_score: [item for item in alignments if item[2] == max_score])()
 
-                            min_length = min([x[4] for x in alignments])
-                            alignments = (lambda min_length=min_length: [item for item in alignments if item[4] == min_length])()
+                            max_length = min([x[4] for x in alignments])
+                            alignments = (lambda max_length=max_length: [item for item in alignments if item[4] == max_length])()
 
                             aln_seq_one = alignments[0][0]
                             aln_seq_two = alignments[0][1]
@@ -279,16 +254,16 @@ class Realigner:
                         # do external blat alignment
                         aln_seq_one, aln_seq_two = processor.external_blat(seq_one_nogap, seq_two_nogap)
                         if aln_seq_one is not None:
-                            min_length = len(aln_seq_one)
+                            max_length = len(aln_seq_one)
                         else:
                             # no alignment, do nothing for current interval
                             break
 
-                    if len(aln_seq_one) > 0:
+                    if max_length > 0:
                         seq_one = aln_seq_one.join([seq_one[:seq_start], seq_one[seq_end:]])
                         seq_two = aln_seq_two.join([seq_two[:seq_start], seq_two[seq_end:]])
 
-                        index_offset += ((seq_end - seq_start) - min_length)
+                        index_offset += ((seq_end - seq_start) - max_length)
 
         return seq_one, seq_two
 
@@ -296,11 +271,8 @@ class Realigner:
 class Remover:
     def remove(self, alignment, rm_genome):
         if len(alignment.genomes) >= rm_genome > -1:
-            #print ("Number of LCBs: " + str(len(alignment.lcbs)))
 
             for lcb in alignment.lcbs:
-                #sys.stdout.write(".")
-                #sys.stdout.flush()
 
                 entries = [entry for entry in lcb.entries if entry.genome_nr != rm_genome]
 
