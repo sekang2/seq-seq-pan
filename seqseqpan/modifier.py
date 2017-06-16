@@ -252,7 +252,7 @@ class Realigner:
 
                     else:
                         # do external blat alignment
-                        aln_seq_one, aln_seq_two = processor.external_blat(seq_one_nogap, seq_two_nogap)
+                        aln_seq_one, aln_seq_two = self._external_blat(seq_one, seq_two, seq_one_nogap, seq_two_nogap, processor)
                         if aln_seq_one is not None:
                             max_length = len(aln_seq_one)
                         else:
@@ -266,6 +266,81 @@ class Realigner:
                         index_offset += ((seq_end - seq_start) - max_length)
 
         return seq_one, seq_two
+
+    def _external_blat(self, seq_one, seq_two, seq_one_nogap, seq_two_nogap, processor):
+        align_result = processor.external_blat(seq_one_nogap, seq_two_nogap)
+        if align_result is not None:
+            # seq_one equals hit   seq_two equals query
+
+            # only one query and first hit has highest score per definition of blat
+            match = align_result[0][0]
+
+            # add starting sequences, in case query or hit do not start at "0"
+            seq_one_list = []
+            seq_two_list = []
+
+            if match.hit_start > 0:
+                seq_one_list.append(seq_one[0:match.hit_start])
+                seq_two_list.append("-" * match.hit_start)
+
+            if match.query_start > 0:
+                seq_one_list.append("-" * match.query_start)
+                seq_two_list.append(seq_two[0:match.query_start])
+
+            if match.is_fragmented:
+
+                hspfrag_num = len(match.hit_range_all)
+
+                for hspfrag_idx in range(hspfrag_num):
+
+                    hspfrag = match[hspfrag_idx]
+
+                    seq_one_list.append(str(hspfrag.hit.seq))
+                    seq_two_list.append(str(hspfrag.query.seq))
+
+                    # add sequences between aligned intervals to sequences
+                    if hspfrag_idx < (hspfrag_num - 1):
+                        next_hspfrag = match[hspfrag_idx + 1]
+                        inter_hit_len = next_hspfrag.hit_start - hspfrag.hit_end
+                        if inter_hit_len > 0:
+                            seq_one_list.append(seq_one[hspfrag.hit_end:next_hspfrag.hit_start])
+                            seq_two_list.append("-" * inter_hit_len)
+
+                        inter_query_len = next_hspfrag.query_start - hspfrag.query_end
+                        if inter_query_len > 0:
+                            seq_one_list.append("-" * inter_query_len)
+                            seq_two_list.append(seq_two[hspfrag.query_end:next_hspfrag.query_start])
+
+            else:
+                seq_rec_one = match.aln[0]
+
+                if seq_rec_one.id == "seq1":
+                    seq_one_list.append(str(match.aln[0].seq))
+                    seq_two_list.append(str(match.aln[1].seq))
+                else:
+                    seq_one_list.append(str(match.aln[1].seq))
+                    seq_two_list.append(str(match.aln[0].seq))
+
+            # add last sequence parts if hit or query do not include sequence ends
+            if match.hit_end < len(seq_one):
+                seq_len = len(seq_one) - match.hit_end
+                seq_one_list.append(seq_one[match.hit_end:])
+                seq_two_list.append("-" * seq_len)
+
+            if match.query_end < len(seq_two):
+                seq_len = len(seq_two) - match.query_end
+                seq_one_list.append("-" * seq_len)
+                seq_two_list.append(seq_two[match.query_end:])
+
+            return "".join(seq_one_list).upper(), "".join(seq_two_list).upper()
+        else:
+            return None, None
+
+
+
+class SingletonAligner:
+    def align(self, alignment, processor):
+        pass
 
 
 class Remover:

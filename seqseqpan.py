@@ -147,6 +147,7 @@ def main():
                                                           new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
                             resolveblocks_align = realigner.realign(res_merge, processor)
+                            writer.write_xmfa(resolveblocks_align, args.output_p, args.output_name + "_beforereconstruct", args.order)
 
                         reconstruct_align = resolver.reconstruct_alignment(resolveblocks_align, consensus, org_align,
                                                                            consensus_genome_nr=consensus_genome_nr,
