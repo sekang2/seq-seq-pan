@@ -9,7 +9,7 @@ from Bio import pairwise2
 
 from seqseqpan.exception import ConsensusXMFAInputError
 from seqseqpan.base import *
-
+from seqseqpan.constants import BLOCK_DELIMITER
 
 class Separator:
     def separate_lcbs(self, alignment, length):
@@ -127,7 +127,8 @@ class Merger:
 
 class Realigner:
     # local realignment around overlapping or consecutive gaps in two sequences
-    def realign(self, alignment, processor):
+    # if border_aln_length is not None align only sequences at block border up to given length
+    def realign(self, alignment, processor, border_aln_length=0):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
 
@@ -148,7 +149,8 @@ class Realigner:
                 one_first_two_second = self._get_realign_regions(entry_one.gaps, entry_two.gaps)
 
                 if len(one_first_two_second) > 0:
-                    seq_one, seq_two = self._realign(entry_one.sequence, entry_two.sequence, one_first_two_second, processor)
+                    seq_one, seq_two = self._realign(entry_one.sequence, entry_two.sequence, one_first_two_second,
+                                                     processor, border_aln_length)
                     entry_one.sequence = seq_one
                     entry_two.sequence = seq_two
 
@@ -156,7 +158,8 @@ class Realigner:
                 two_first_one_second = self._get_realign_regions(entry_two.gaps, entry_one.gaps)
 
                 if len(two_first_one_second) > 0:
-                    seq_two, seq_one = self._realign(entry_two.sequence, entry_one.sequence, two_first_one_second, processor)
+                    seq_two, seq_one = self._realign(entry_two.sequence, entry_one.sequence, two_first_one_second,
+                                                     processor, border_aln_length)
                     entry_one.sequence = seq_one
                     entry_two.sequence = seq_two
 
@@ -179,94 +182,181 @@ class Realigner:
 
         return regions
 
-    def _realign(self, seq_one, seq_two, realign_regions, processor):
+    def _realign(self, seq_one, seq_two, realign_regions, processor, border_aln_length):
+        # if border_aln_length is not None align only sequences at block border up to given length
         realign_regions = sorted(realign_regions)
 
         index_offset = 0
 
         for interval in realign_regions:
-            max_index, max_seq_length = max(enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]),
-                                            key=lambda p: p[1])
+            max_index, max_seq_length = max(
+                enumerate([interval[0][1] - interval[0][0], interval[1][1] - interval[1][0]]), key=lambda p: p[1])
+
+            # get length of gaps at start or end of block
+            short_border_intervals = [(i[1] - i[0]) <= border_aln_length for i in interval  # check border length
+                                      if i[0] == 0                                      # start of block
+                                      or ((i[1] - index_offset) == len(seq_one))        # end of block
+                                      or ((i[1] - index_offset) == len(seq_two))]       # end of block
 
             interval_start = interval[max_index][0] - index_offset
             interval_end = interval[max_index][1] - index_offset
 
-            # check if interval only 'N' - if yes: do not realign
-            n_stretch = 'N' * max_seq_length
-            if not (seq_one[interval_start:interval_end] == n_stretch or
-                    seq_two[interval_start:interval_end] == n_stretch):
+            # border_aln_length not set OR small sequence at start or end of block
+            if border_aln_length == 0 or any(short_border_intervals):
 
-                max_seq_length = math.ceil(max_seq_length*1.5)
+                # check if interval only 'N' - if yes: do not realign
+                n_stretch = 'N' * max_seq_length
+                if not (seq_one[interval_start:interval_end] == n_stretch or
+                                seq_two[interval_start:interval_end] == n_stretch):
 
-                # get surrounding sequences
-                seq_start = interval_start - max_seq_length
-                seq_end = interval_end + max_seq_length
+                    max_seq_length = math.ceil(max_seq_length * 1.5)
 
-                # do not go over boundaries of sequences!
-                seq_start = max(seq_start, 0)
-                min_orig_seq_length = min(len(seq_one), len(seq_two))
-                seq_end = min(seq_end, min_orig_seq_length)
+                    # get surrounding sequences
+                    seq_start = interval_start - max_seq_length
+                    seq_end = interval_end + max_seq_length
 
-                # N-stretches in sequences
-                #  find N-stretch between start and interval and start sub-sequence after nearest stretch
-                n_stretch_length = 10
-                n_stretch = 'N' * n_stretch_length
-                n_stretch_idx = seq_one.rfind(n_stretch, seq_start, interval_start)
+                    # do not go over boundaries of sequences!
+                    seq_start = max(seq_start, 0)
+                    min_orig_seq_length = min(len(seq_one), len(seq_two))
+                    seq_end = min(seq_end, min_orig_seq_length)
 
-                if n_stretch_idx > -1:
-                    seq_start = max(seq_start, (n_stretch_idx + n_stretch_length))
-                n_stretch_idx = seq_two.rfind(n_stretch, seq_start, interval_start)
-                if n_stretch_idx > -1:
-                    seq_start = max(seq_start, ( n_stretch_idx + n_stretch_length))
+                    # N-stretches in sequences
+                    #  find N-stretch between start and interval and start sub-sequence after nearest stretch
+                    n_stretch_length = 10
+                    n_stretch = 'N' * n_stretch_length
+                    n_stretch_idx = seq_one.rfind(n_stretch, seq_start, interval_start)
 
-                #  find N-stretch between interval and end  and end sub-sequence before nearest stretch
-                n_stretch_idx_one = seq_one.find(n_stretch, interval_end, seq_end)
-                n_stretch_idx_two = seq_two.find(n_stretch, interval_end, seq_end)
+                    if n_stretch_idx > -1:
+                        seq_start = max(seq_start, (n_stretch_idx + n_stretch_length))
+                    n_stretch_idx = seq_two.rfind(n_stretch, seq_start, interval_start)
+                    if n_stretch_idx > -1:
+                        seq_start = max(seq_start, (n_stretch_idx + n_stretch_length))
 
-                seq_end = min(seq_end,
-                              (n_stretch_idx_one if n_stretch_idx_one > -1 else seq_end),
-                              (n_stretch_idx_two if n_stretch_idx_two > -1 else seq_end)
-                              )
+                    # find N-stretch between interval and end  and end sub-sequence before nearest stretch
+                    n_stretch_idx_one = seq_one.find(n_stretch, interval_end, seq_end)
+                    n_stretch_idx_two = seq_two.find(n_stretch, interval_end, seq_end)
 
-                seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
-                seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
+                    seq_end = min(seq_end,
+                                  (n_stretch_idx_one if n_stretch_idx_one > -1 else seq_end),
+                                  (n_stretch_idx_two if n_stretch_idx_two > -1 else seq_end)
+                                  )
 
-                if not (seq_one_nogap == '' or seq_two_nogap == ''): # else: do nothing for current interval
-                    if (seq_end - seq_start) < 1000:
-                        alignments = pairwise2.align.globalxs(seq_one_nogap.upper(),
-                                                              seq_two_nogap.upper(),
-                                                              -0.5, -0.1,
-                                                              one_alignment_only=True)
-                        if len(alignments) > 0:
-                            max_score = max([x[2] for x in alignments])
-                            alignments = (lambda max_score=max_score: [item for item in alignments if item[2] == max_score])()
+                    if border_aln_length > 0:
+                        print(seq_one[seq_start:seq_end])
+                        print(seq_two[seq_start:seq_end])
 
-                            max_length = min([x[4] for x in alignments])
-                            alignments = (lambda max_length=max_length: [item for item in alignments if item[4] == max_length])()
+                    seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
+                    seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
 
-                            aln_seq_one = alignments[0][0]
-                            aln_seq_two = alignments[0][1]
+                    if not (seq_one_nogap == '' or seq_two_nogap == ''):  # else: do nothing for current interval
+                        if (seq_end - seq_start) < 1000:
+                            alignments = pairwise2.align.globalxs(seq_one_nogap.upper(),
+                                                                  seq_two_nogap.upper(),
+                                                                  -0.5, -0.1,
+                                                                  one_alignment_only=True)
+                            if len(alignments) > 0:
+                                max_score = max([x[2] for x in alignments])
+                                alignments = (lambda max_score=max_score: [item for item in alignments if item[2] == max_score])()
+
+                                max_length = min([x[4] for x in alignments])
+                                alignments = (lambda max_length=max_length: [item for item in alignments if item[4] == max_length])()
+
+                                aln_seq_one = alignments[0][0]
+                                aln_seq_two = alignments[0][1]
+                            else:
+                                # no alignment, do nothing for current interval
+                                break
+
                         else:
-                            # no alignment, do nothing for current interval
-                            break
+                            # do external blat alignment
+                            aln_seq_one, aln_seq_two = self._external_blat(seq_one_nogap, seq_two_nogap, processor)
 
-                    else:
-                        # do external blat alignment
-                        aln_seq_one, aln_seq_two = processor.external_blat(seq_one_nogap, seq_two_nogap)
-                        if aln_seq_one is not None:
-                            max_length = len(aln_seq_one)
-                        else:
-                            # no alignment, do nothing for current interval
-                            break
+                            if aln_seq_one is not None:
+                                max_length = len(aln_seq_one)
+                            else:
+                                # no alignment, do nothing for current interval
+                                break
 
-                    if max_length > 0:
-                        seq_one = aln_seq_one.join([seq_one[:seq_start], seq_one[seq_end:]])
-                        seq_two = aln_seq_two.join([seq_two[:seq_start], seq_two[seq_end:]])
+                        if max_length > 0 and max_length < ( seq_end - seq_start ):  # only use new alignment if better than old one
+                            if border_aln_length > 0:
+                                print(aln_seq_one)
+                                print(aln_seq_two)
 
-                        index_offset += ((seq_end - seq_start) - max_length)
+                            seq_one = aln_seq_one.join([seq_one[:seq_start], seq_one[seq_end:]])
+                            seq_two = aln_seq_two.join([seq_two[:seq_start], seq_two[seq_end:]])
+
+                            index_offset += ((seq_end - seq_start) - max_length)
 
         return seq_one, seq_two
 
+    def _external_blat(self, seq_one, seq_two, processor):
+        align_result = processor.external_blat(seq_one, seq_two)
+        if align_result is not None:
+            # seq_one equals hit   seq_two equals query
+
+            # only one query and first hit has highest score per definition of blat
+            match = align_result[0][0]
+
+            # add starting sequences, in case query or hit do not start at "0"
+            seq_one_list = []
+            seq_two_list = []
+
+            if match.hit_start > 0:
+                seq_one_list.append(seq_one[0:match.hit_start])
+                seq_two_list.append("-" * match.hit_start)
+
+            if match.query_start > 0:
+                seq_one_list.append("-" * match.query_start)
+                seq_two_list.append(seq_two[0:match.query_start])
+
+            if match.is_fragmented:
+
+                hspfrag_num = len(match.hit_range_all)
+
+                for hspfrag_idx in range(hspfrag_num):
+
+                    hspfrag = match[hspfrag_idx]
+
+                    seq_one_list.append(str(hspfrag.hit.seq))
+                    seq_two_list.append(str(hspfrag.query.seq))
+
+                    # add sequences between aligned intervals to sequences
+                    if hspfrag_idx < (hspfrag_num - 1):
+                        next_hspfrag = match[hspfrag_idx + 1]
+                        inter_hit_len = next_hspfrag.hit_start - hspfrag.hit_end
+                        if inter_hit_len > 0:
+                            seq_one_list.append(seq_one[hspfrag.hit_end:next_hspfrag.hit_start])
+                            seq_two_list.append("-" * inter_hit_len)
+
+                        inter_query_len = next_hspfrag.query_start - hspfrag.query_end
+                        if inter_query_len > 0:
+                            seq_one_list.append("-" * inter_query_len)
+                            seq_two_list.append(seq_two[hspfrag.query_end:next_hspfrag.query_start])
+
+            else:
+                seq_rec_one = match.aln[0]
+
+                if seq_rec_one.id == "seq1":
+                    seq_one_list.append(str(match.aln[0].seq))
+                    seq_two_list.append(str(match.aln[1].seq))
+                else:
+                    seq_one_list.append(str(match.aln[1].seq))
+                    seq_two_list.append(str(match.aln[0].seq))
+
+            # add last sequence parts if hit or query do not include sequence ends
+            if match.hit_end < len(seq_one):
+                seq_len = len(seq_one) - match.hit_end
+                seq_one_list.append(seq_one[match.hit_end:])
+                seq_two_list.append("-" * seq_len)
+
+            if match.query_end < len(seq_two):
+                seq_len = len(seq_two) - match.query_end
+                seq_one_list.append("-" * seq_len)
+                seq_two_list.append(seq_two[match.query_end:])
+
+            return "".join(seq_one_list).upper(), "".join(seq_two_list).upper()
+        else:
+            return None, None
 
 class Remover:
     def remove(self, alignment, rm_genome):
@@ -316,7 +406,7 @@ class Remover:
                     elif len(entries) == 1: # if only one entry left replace all gaps in sequence
                         entries[0].sequence = entries[0].sequence.replace("-", "")
                         if entries[0].genome_nr > rm_genome:
-                                entries[0].genome_nr -= 1
+                            entries[0].genome_nr -= 1
                 else:
                     for entry in entries:
                         if entry.genome_nr > rm_genome:
@@ -358,7 +448,7 @@ class Remover:
                                 for entry in range(0, len(alignment.lcbs[lcb].entries)):
                                     if alignment.lcbs[lcb].entries[entry].genome_nr != alignment.lcbs[lcb - 1].entries[entry].genome_nr \
                                             or alignment.lcbs[lcb].entries[entry].start - alignment.lcbs[lcb - 1].entries[entry].end != 1 \
-                                            or (alignment.lcbs[lcb].entries[entry].strand ==alignment.lcbs[lcb - 1].entries[entry].strand) != strand:
+                                            or (alignment.lcbs[lcb].entries[entry].strand == alignment.lcbs[lcb - 1].entries[entry].strand) != strand:
                                         # if an entry does not fulfill all conditions stop and do not merge this lcb
                                         new_alignment.add_lcb(alignment.lcbs[lcb])
                                         break

@@ -146,7 +146,7 @@ def main():
                             res_merge = merger.merge_lcbs(res_merge, consensus_genome_nr=new_genome_nr,
                                                           new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
                             # realign step necessary in case of consecutive gaps introduced by merging
-                            resolveblocks_align = realigner.realign(res_merge, processor)
+                            resolveblocks_align = realigner.realign(res_merge, processor, args.lcb_length + 1)
 
                         reconstruct_align = resolver.reconstruct_alignment(resolveblocks_align, consensus, org_align,
                                                                            consensus_genome_nr=consensus_genome_nr,
