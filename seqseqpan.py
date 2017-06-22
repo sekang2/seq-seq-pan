@@ -121,11 +121,9 @@ def main():
 
                     writer.write_xmfa(separated, args.output_p, args.output_name + "_separated", args.order)
 
-                elif args.task == "resolve":
+                elif args.task == "resolve" or args.task == "reconstruct":
                     try:
-
                         consensus = parser.parse_block_separated_consensus(args.consensus_f)
-                        org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                         if align.genomes[1].file_path == consensus.fasta_file:
                             consensus_genome_nr = 1
@@ -136,31 +134,38 @@ def main():
 
                         new_genome_nr = (1 if consensus_genome_nr == 2 else 2)
 
-                        resolveblocks_align = resolver.resolve_multialignment(align, consensus,
-                                                                              consensus_genome_nr=consensus_genome_nr,
-                                                                              new_genome_nr=new_genome_nr)
-
-                        if args.merge:
-                            res_merge = merger.merge_lcbs(resolveblocks_align, consensus_genome_nr=consensus_genome_nr,
-                                                          new_genome_nr=new_genome_nr, block_length=args.lcb_length)
-                            res_merge = merger.merge_lcbs(res_merge, consensus_genome_nr=new_genome_nr,
-                                                          new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
-                            # realign step necessary in case of consecutive gaps introduced by merging
-
-                            resolveblocks_align = realigner.realign(res_merge, processor, args.lcb_length + 1)
-
-
-                        reconstruct_align = resolver.reconstruct_alignment(resolveblocks_align, consensus, org_align,
-                                                                           consensus_genome_nr=consensus_genome_nr,
-                                                                           new_genome_nr=new_genome_nr)
-
-                    except (XMFAHeaderFormatError, LcbInputError) as e:
-                        print(e.message + "(" + consensus.xmfa_file + ")")
                     except (ConsensusFastaFormatError, ConsensusXMFAInputError, ConsensusGenomeNumberError) as e:
                         print(e.message)
                     else:
-                        writer.write_xmfa(reconstruct_align, args.output_p, args.output_name + "_resolve", args.order)
+                        if args.task == "resolve":
 
+                            resolveblocks_align = resolver.resolve_multialignment(align, consensus,
+                                                                                  consensus_genome_nr=consensus_genome_nr,
+                                                                                  new_genome_nr=new_genome_nr)
+                            if args.merge:
+                                res_merge = merger.merge_lcbs(resolveblocks_align, consensus_genome_nr=consensus_genome_nr,
+                                                              new_genome_nr=new_genome_nr, block_length=args.lcb_length)
+                                res_merge = merger.merge_lcbs(res_merge, consensus_genome_nr=new_genome_nr,
+                                                              new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
+                                # realign step necessary in case of consecutive gaps introduced by merging
+                                resolveblocks_align = realigner.realign(res_merge, processor, args.lcb_length + 1)
+
+
+                            writer.write_xmfa(resolveblocks_align, args.output_p, args.output_name + "_resolve",
+                                              args.order, check_invalid=False)
+
+                        elif args.task == "reconstruct":
+                            try:
+                                org_align = parser.parse_xmfa(consensus.xmfa_file)
+
+                                reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
+                                                                               consensus_genome_nr=consensus_genome_nr,
+                                                                               new_genome_nr=new_genome_nr)
+                            except (XMFAHeaderFormatError, LcbInputError) as e:
+                                print(e.message + "(" + consensus.xmfa_file + ")")
+                            else:
+                                writer.write_xmfa(reconstruct_align, args.output_p, args.output_name + "_reconstruct",
+                                                  args.order)
                 elif args.task == "xmfa":
 
                     writer.write_xmfa(align, args.output_p, args.output_name, args.order)
@@ -190,9 +195,9 @@ if __name__ == '__main__':
     parser.add_argument("-o", "--order", dest="order", type=int, default=0,
                         help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
     parser.add_argument("-t", "--task", dest="task",
-                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract)",
+                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract|reconstruct)",
                         choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate", "remove",
-                                 "split", "extract"], required=True)
+                                 "split", "extract", "reconstruct"], required=True)
     parser.add_argument("-i", "--index", dest="coord_f",
                         help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line. Coordinates are 1-based!")
     parser.add_argument("-l", "--length", dest="lcb_length", type=int,

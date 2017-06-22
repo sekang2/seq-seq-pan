@@ -255,9 +255,9 @@ class Writer:
     _maf_sequence_header = "\na label={0}\n"
     _maf_entry_header = "s\t{0}\t{1}\t{2}\t{3}\t{4}\t{5}\n"
 
-    def write_xmfa(self, alignment, path, name, order=0):
+    def write_xmfa(self, alignment, path, name, order=0, check_invalid=True):
 
-        if alignment.is_invalid():
+        if check_invalid and alignment.is_invalid():
             print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: XMFA is invalid!\n!!!!!!!!!\n!!!!!!!\n")
 
         with open(path + "/" + name + ".xmfa", "w") as output:
@@ -284,9 +284,9 @@ class Writer:
                     output.write("\n".join(re.findall(".{1,80}", entry.sequence)) + "\n")
                 output.write("=\n")
 
-    def write_maf(self, alignment, path, name, chromosome_desc):
+    def write_maf(self, alignment, path, name, chromosome_desc, check_invalid=True):
 
-        if alignment.is_invalid():
+        if check_invalid and alignment.is_invalid():
             print("\n!!!!!!!!!\n!!!!!!!\nWARNING!!!!!!: MAF is invalid!\n!!!!!!!!!\n!!!!!!!\n")
 
         with open(path + "/" + name + ".maf", "w") as output:

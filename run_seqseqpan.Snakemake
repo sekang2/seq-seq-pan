@@ -30,12 +30,12 @@ ruleorder: use_prev_pan > resolve
 
 # determine which file is translated to output xmfa
 def output_xmfa(wildcards):
-    xmfa_f = resolve_or_not({"genome": str(len(GENOME_NAMES)-1)})
+    xmfa_f = reconstruct_or_not({"genome": str(len(GENOME_NAMES)-1)})
     return xmfa_f
 
 # resolving not possible/necessary for alignment of first two genomes
-def resolve_or_not(wildcards):
-    return ("add"+wildcards["genome"]+"_realign.xmfa"  if (int(wildcards["genome"]) <= 1 and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
+def reconstruct_or_not(wildcards):
+    return ("add"+wildcards["genome"]+"_realign.xmfa"  if (int(wildcards["genome"]) <= 1 and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_reconstruct.xmfa")
 
 # merge after alignment
 def merge_or_not(wildcards):
@@ -112,7 +112,7 @@ rule fn_translate:
 
         
 rule consensus:
-    input: resolve_or_not
+    input: reconstruct_or_not
     
     output: temp("add{genome}_consensus.fasta.blockseparated.fasta"),
             temp("add{genome}_consensus.fasta.blockseparated.idx"),
@@ -124,15 +124,22 @@ rule consensus:
 
 
 rule resolve:
-    input:  xmfa_prev= lambda wildcards: resolve_or_not({"genome":prev_genome(wildcards)}), 
-            xmfa= "add{genome}_realign.xmfa", 
+    input:  xmfa= "add{genome}_realign.xmfa",
             consensus=consensus_file
     output: temp("add{genome,\d+}_resolve.xmfa")
     params: merge=merge_or_not_param
     shell:
         "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]} {params.merge}"
         
-        
+
+rule reconstruct:
+    input: xmfa_prev=lambda wildcards: reconstruct_or_not({"genome":prev_genome(wildcards)}),
+           xmfa= "add{genome}_resolve.xmfa",
+           consensus=consensus_file
+    output: temp("add{genome,\d+}_reconstruct.xmfa")
+    shell:
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t reconstruct -c {input.consensus[1]}"
+
 rule realign:
     input: merge_or_not
     output: temp("add{genome,\d+}_realign.xmfa")
@@ -185,7 +192,7 @@ rule maf:
 
 
 rule split:
-    input: xmfa="add{genome}_resolve.xmfa",
+    input: xmfa="add{genome}_reconstruct.xmfa",
            genomedesc=config["outfilename"]+"_genomedescription.txt"
     output: "add{genome}_split.xmfa"
     shell:
@@ -202,6 +209,6 @@ rule genomedesc:
 
 rule use_prev_pan:
     input: PREV_PAN+".xmfa"
-    output: temp("add-1_resolve.xmfa")
+    output: temp("add-1_reconstruct.xmfa")
     shell:
         "cp {input} {output} "
