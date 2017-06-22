@@ -289,6 +289,7 @@ class Realigner:
 
         return seq_one, seq_two
 
+
     def _external_blat(self, seq_one, seq_two, processor):
         align_result = processor.external_blat(seq_one, seq_two)
         if align_result is not None:
