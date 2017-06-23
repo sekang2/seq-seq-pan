@@ -5,7 +5,7 @@ import sys
 import pdb
 
 from seqseqpan.io import Parser, Writer, Processor
-from seqseqpan.modifier import Realigner, Merger, Separator, Remover
+from seqseqpan.modifier import Realigner, Merger, Separator, Remover, SingletonAligner
 from seqseqpan.formatter import Splitter
 from seqseqpan.resolver import Resolver
 from seqseqpan.exception import *
@@ -23,6 +23,7 @@ def main():
     merger = Merger()
     separator = Separator()
     remover = Remover()
+    singletonAligner = SingletonAligner()
     processor = Processor(args.output_p)
 
     if args.task == "map":
@@ -90,7 +91,6 @@ def main():
                         start = int(start)-1
                         sequence = sequence[start:int(end)]
 
-
                     writer.write_fasta(region, sequence, args.output_p, args.output_name)
 
                 elif args.task == "realign":
@@ -123,6 +123,7 @@ def main():
 
                 elif args.task == "resolve" or args.task == "reconstruct":
                     try:
+
                         consensus = parser.parse_block_separated_consensus(args.consensus_f)
 
                         if align.genomes[1].file_path == consensus.fasta_file:
@@ -138,7 +139,6 @@ def main():
                         print(e.message)
                     else:
                         if args.task == "resolve":
-
                             resolveblocks_align = resolver.resolve_multialignment(align, consensus,
                                                                                   consensus_genome_nr=consensus_genome_nr,
                                                                                   new_genome_nr=new_genome_nr)
@@ -150,12 +150,12 @@ def main():
                                 # realign step necessary in case of consecutive gaps introduced by merging
                                 resolveblocks_align = realigner.realign(res_merge, processor, args.lcb_length + 1)
 
-
                             writer.write_xmfa(resolveblocks_align, args.output_p, args.output_name + "_resolve",
                                               args.order, check_invalid=False)
 
                         elif args.task == "reconstruct":
                             try:
+                                pdb.set_trace()
                                 org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                                 reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
@@ -166,6 +166,31 @@ def main():
                             else:
                                 writer.write_xmfa(reconstruct_align, args.output_p, args.output_name + "_reconstruct",
                                                   args.order)
+
+                elif args.task == "blockcountsplit":
+
+                    pairblocks_alignment, consensus_singleton_alignment, new_singleton_alignment = \
+                        singletonAligner.genome_count_split(align)
+
+                    writer.write_xmfa(consensus_singleton_alignment, args.output_p,
+                                      args.output_name + "_1_single",
+                                      order=0, check_invalid=False)
+                    writer.write_xmfa(new_singleton_alignment, args.output_p,
+                                      args.output_name + "_2_single",
+                                      order=0, check_invalid=False)
+                    writer.write_xmfa(pairblocks_alignment, args.output_p,
+                                      args.output_name + "_pairblocks",
+                                      order=0, check_invalid=False)
+
+                elif args.task == "join":
+                    try:
+                        align_2 = parser.parse_xmfa(args.xmfa_f_2)
+                    except (XMFAHeaderFormatError, LcbInputError) as e:
+                        print(e.message + "(" + args.xmfa_f_2 + ")")
+                    else:
+                        joined_alignment = singletonAligner.join(align, align_2)
+                        writer.write_xmfa(joined_alignment, args.output_p, args.output_name + "_joined", args.order)
+
                 elif args.task == "xmfa":
 
                     writer.write_xmfa(align, args.output_p, args.output_name, args.order)
@@ -192,12 +217,15 @@ if __name__ == '__main__':
                         required=False)
     parser.add_argument("-m", "--merge", dest="merge",
                         help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
+    #parser.add_argument("-s", "--singlealignment", dest="single",
+    #                    help="In resolve-step: Create XMFA files with single blocks of each genome.\n"
+    #                         "In reconstruct-step: Use alignment of single blocks.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0,
                         help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
     parser.add_argument("-t", "--task", dest="task",
-                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract|reconstruct)",
+                        help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract|reconstruct|blockcountsplit|join)",
                         choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate", "remove",
-                                 "split", "extract", "reconstruct"], required=True)
+                                 "split", "extract", "reconstruct", "blockcountsplit", "join"], required=True)
     parser.add_argument("-i", "--index", dest="coord_f",
                         help="file with indices to map. First line: source_seq\tdest_seq[,dest_seq2,...] using \"c\" or sequence number. Then one coordinate per line. Coordinates are 1-based!")
     parser.add_argument("-l", "--length", dest="lcb_length", type=int,
@@ -212,10 +240,9 @@ if __name__ == '__main__':
                                                                     "Multiple chromosomes a genome must be listed in the same order as in original FASTA file.\n")
     parser.add_argument("-e", "--extractregion", dest="region", help="Region to extract in the form genome_nr:start-end (one based and inclusive) or only genome_nr for full sequence.")
 
-    args = parser.parse_args()
+    parser.add_argument("-y", "--xmfa_two", dest="xmfa_f_2", help="XMFA file to be joined with input file")
 
-    if args.task == "resolve" and args.consensus_f is None:
-        parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"resolve\"-task (-t/--task).")
+    args = parser.parse_args()
 
     if args.task == "map":
         if args.consensus_f is None:
@@ -224,10 +251,19 @@ if __name__ == '__main__':
             parser.error("Please provide a file with indices to map (-i/--index) for task \"map\" (-t/--task).")
         if args.xmfa_f is not None:
             print("WARNING: XMFA file (-x/--xmfa) will not be used for task \"map\" (-t/--task).", file=sys.stderr)
-
     else:
         if args.xmfa_f is None:
             parser.error("Please provide the following arguments: -x/--xmfa")
+
+    if (args.task == "resolve" or args.task == "reconstruct") and args.consensus_f is None:
+        parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"resolve\"-task (-t/--task).")
+
+ #   if args.task == "reconstruct" and args.single and args.single_xmfa_f is None:
+ #       parser.error("Please provide a XMFA file with single blocks alignment (-z/--singlealignmentxmfa) "
+ #                    "for the \"reconstruct\"-task (-t/--task) or do not use -s/--singlealignment flag.")
+
+    if args.task == "join" and args.xmfa_f_2 is None:
+        parser.error("Please provide second XMFA to be joined with input XMFA file.")
 
     if args.task == "remove" and args.rm_genome is None:
         parser.error("Please provide the number of the genome to be removed.")

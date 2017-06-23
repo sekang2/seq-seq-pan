@@ -43,8 +43,14 @@ class Resolver:
         recalculated = Alignment(orig_align.xmfa_file)
         for nr, genome in orig_align.genomes.items():
             recalculated.add_genome(genome, nr)
-        nr_genomes = len(orig_align.genomes) + 1
-        recalculated.add_genome(resolved_align.genomes[new_genome_nr], nr_genomes)
+
+        added_genome_nr = len(orig_align.genomes) + 1
+
+        # if first genome missing in alignment (singleton alignment!) add new genome to beginning of genome set
+        if not (1 in orig_align.genomes):
+            added_genome_nr = 1
+
+        recalculated.add_genome(resolved_align.genomes[new_genome_nr], added_genome_nr)
         try:
             sorted_orig_lcbs = orig_align.get_sorted_lcbs(consensus.order)
         except ParameterError:
@@ -58,7 +64,7 @@ class Resolver:
                 new_entry = lcb.get_entry(new_genome_nr)
 
                 if new_entry is not None:
-                    new_entry.genome_nr = nr_genomes
+                    new_entry.genome_nr = added_genome_nr
                     recalculated_lcb.add_entries(new_entry)
 
                 consensus_entry = lcb.get_entry(consensus_genome_nr)
@@ -172,6 +178,7 @@ class Resolver:
 
         # calculate start and end of sequence within current consensus block
         start_within_block = consensus_entry.start - consensus.block_start_indices[idx] - 1
+
         end_within_block = consensus_entry.end - consensus.block_start_indices[idx] - 1
         len_within_block = end_within_block - start_within_block + 1
 

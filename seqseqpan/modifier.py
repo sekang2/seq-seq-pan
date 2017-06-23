@@ -289,7 +289,6 @@ class Realigner:
 
         return seq_one, seq_two
 
-
     def _external_blat(self, seq_one, seq_two, processor):
         align_result = processor.external_blat(seq_one, seq_two)
         if align_result is not None:
@@ -359,6 +358,55 @@ class Realigner:
         else:
             return None, None
 
+
+class SingletonAligner:
+    def genome_count_split(self, alignment):
+        if len(alignment.genomes) > 2:
+            raise ConsensusXMFAInputError()
+
+        single_alignment_1 = Alignment(alignment.xmfa_file)
+        single_alignment_2 = Alignment(alignment.xmfa_file)
+        single_alignment_1.genomes[1] = alignment.genomes[1]
+        single_alignment_2.genomes[2] = alignment.genomes[2]
+
+        pairlcbs = []
+        for lcb in alignment.lcbs:
+            if len(lcb.entries) == 1:
+                if lcb.entries[0].genome_nr == 1:
+                    single_alignment_1.add_lcb(lcb)
+                elif lcb.entries[0].genome_nr == 2:
+                    single_alignment_2.add_lcb(lcb)
+            else:
+                pairlcbs.append(lcb)
+        alignment.lcbs = pairlcbs
+
+        return alignment, single_alignment_1, single_alignment_2
+
+    def join(self, alignment, alignment_two):
+
+        if len(alignment.genomes) > 2:
+            print("ERROR: I don't want to think about cases with more than 2 genomes now.")
+
+        genome_names_one = [genome.file_path for genome in alignment.genomes.values()]
+        genome_names_two = [genome.file_path for genome in alignment_two.genomes.values()]
+
+        if genome_names_one.sort() != genome_names_two.sort():
+            print("ERROR: Can only join alignments from same set of genomes.")
+
+        if alignment.genomes[1].file_path != alignment_two.genomes[1].file_path:
+            genome_nr_dict = {1: 2, 2: 1}
+        else:
+            genome_nr_dict = {1: 1, 2: 2}
+
+        for lcb in alignment_two.lcbs:
+            for entry in lcb.entries:
+                entry.genome_nr = genome_nr_dict[entry.genome_nr]
+
+            alignment.add_lcb(lcb)
+
+        return alignment
+
+
 class Remover:
     def remove(self, alignment, rm_genome):
         if len(alignment.genomes) >= rm_genome > -1:
@@ -373,17 +421,19 @@ class Remover:
                     if len(entries) > 1:
                         # if more than one entry left search for gaps that are present in all remaining entries
 
-                        rm_gaps = set(itertools.chain.from_iterable([list(range(k, entries[0].gaps[k])) for k in entries[0].gaps]))
+                        rm_gaps = set(itertools.chain.from_iterable(
+                            [list(range(k, entries[0].gaps[k])) for k in entries[0].gaps]))
 
                         for entry in entries[1:]:
-                            rm_gaps &= set(itertools.chain.from_iterable([list(range(k, entry.gaps[k])) for k in entry.gaps]))
+                            rm_gaps &= set(
+                                itertools.chain.from_iterable([list(range(k, entry.gaps[k])) for k in entry.gaps]))
                         rm_gaps = sorted(list(rm_gaps))
 
                         # make intervals of consecutive gap positions for faster join()
                         gap_ranges = []
-                        for k, g in itertools.groupby(enumerate(rm_gaps), lambda x:x[0]-x[1]):
+                        for k, g in itertools.groupby(enumerate(rm_gaps), lambda x: x[0] - x[1]):
                             group = list(map(itemgetter(1), g))
-                            gap_ranges.append((group[0], group[-1])) # tuples with intervals
+                            gap_ranges.append((group[0], group[-1]))  # tuples with intervals
 
                         if len(gap_ranges) > 0:
                             if gap_ranges[0][0] != 0:
@@ -404,7 +454,7 @@ class Remover:
                                 if entry.genome_nr > rm_genome:
                                     entry.genome_nr -= 1
 
-                    elif len(entries) == 1: # if only one entry left replace all gaps in sequence
+                    elif len(entries) == 1:  # if only one entry left replace all gaps in sequence
                         entries[0].sequence = entries[0].sequence.replace("-", "")
                         if entries[0].genome_nr > rm_genome:
                             entries[0].genome_nr -= 1
@@ -447,9 +497,11 @@ class Remover:
                             if len(alignment.lcbs[lcb].entries) == len(alignment.lcbs[lcb - 1].entries):
                                 strand = alignment.lcbs[lcb].entries[0].strand == alignment.lcbs[lcb - 1].entries[0].strand
                                 for entry in range(0, len(alignment.lcbs[lcb].entries)):
+
                                     if alignment.lcbs[lcb].entries[entry].genome_nr != alignment.lcbs[lcb - 1].entries[entry].genome_nr \
                                             or alignment.lcbs[lcb].entries[entry].start - alignment.lcbs[lcb - 1].entries[entry].end != 1 \
                                             or (alignment.lcbs[lcb].entries[entry].strand == alignment.lcbs[lcb - 1].entries[entry].strand) != strand:
+
                                         # if an entry does not fulfill all conditions stop and do not merge this lcb
                                         new_alignment.add_lcb(alignment.lcbs[lcb])
                                         break

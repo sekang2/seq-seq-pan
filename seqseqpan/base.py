@@ -65,7 +65,7 @@ class Alignment:
 
     def get_sorted_lcbs(self, order):
         # if order == 0 sort by blocknr
-        if len(self.genomes) >= order > -1:
+        if order in self.genomes or order == 0:
             sorted_lcbs = sorted(self.lcbs, key=lambda lcb: lcb.number)
 
             if order > 0:

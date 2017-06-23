@@ -120,9 +120,10 @@ class Parser:
             line = in_file.readline()
             line = in_file.readline()
 
-            block_start_indices = [int(idx) for idx in line.strip().split(";")]
-
-        return block_start_indices
+            if line != "":
+                    return [int(idx) for idx in line.strip().split(";")]
+            else:
+                    return []
 
     def parse_consensus_index(self, filename):
         with open(filename + ".idx", "r") as in_file:
