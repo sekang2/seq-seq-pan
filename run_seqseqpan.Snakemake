@@ -156,7 +156,7 @@ rule resolve:
         "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]} {params.merge}"
         
 rule reconstruct:
-    input: xmfa_prev=prev_joined_filename,
+    input: xmfa_prev=reconstruct_or_not,
            xmfa= "add{genome}_joined.xmfa",
            consensus=consensus_file
     output: temp("add{genome,\d+}_reconstruct.xmfa")
