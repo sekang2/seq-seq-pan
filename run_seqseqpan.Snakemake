@@ -38,7 +38,6 @@ def output_xmfa(wildcards):
 def reconstruct_or_not(wildcards):
     return ("add"+wildcards["genome"]+"_joined.xmfa" if (int(wildcards["genome"]) <= 1 and PREV_PAN == "") else "add"+wildcards["genome"]+"_reconstruct.xmfa")
 
-
 # resolve not possible/necessary for alignment of first two genomes
 def resolve_or_not(wildcards):
     return ("add"+wildcards["genome"]+"_realign.xmfa"  if (int(wildcards["genome"]) <= 1 and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
@@ -48,10 +47,10 @@ def merge_or_not(wildcards):
     return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+"_align.xmfa")
 
 # merge after alignment of single blocks
-def merge_or_not_singletons(wildcards):
-    my_wc = wildcards
-    my_wc["genome"] = wildcards["genome"] + "_single"
-    return merge_or_not(my_wc)
+#def merge_or_not_singletons(wildcards):
+#    my_wc = wildcards
+#    my_wc["genome"] = wildcards["genome"] + "_single"
+#    return merge_or_not(my_wc)
 
 def merge_or_not_param(wildcards):
     return ("-m" if MERGE else "")
@@ -63,16 +62,13 @@ def mauve_input(wildcards):
     return (GENOME_DICT[wildcards["genome"]])
 
 def consensus_file(wildcards):
-
     new_nr = prev_genome(wildcards)
-
     if int(new_nr) > 0 or (int(new_nr) <= 0 and PREV_PAN != ""):
        consgen = ["add"+new_nr+"_consensus.fasta.blockseparated.fasta", "add"+new_nr+"_consensus.fasta", "add"+new_nr+"_consensus.fasta.blockseparated.idx"]
     elif PREV_PAN == "":
        consgen = [GENOME_DICT[new_nr]]
     else:
         print("Error in defining the second file for alignment.")
-
     return consgen
 
 def prev_genome(wildcards):
@@ -80,6 +76,9 @@ def prev_genome(wildcards):
 
 def prev_joined_filename(wildcards):
     return "".join(["add", prev_genome(wildcards), "_joined.xmfa"])
+
+#  "xmfa_prev" always needed when using consensus! --> xmfa file used to build consensus
+
 
 rule all:
     input:  config["outfilename"]+"_genomedescription.txt",
@@ -180,22 +179,39 @@ rule reconstruct_singleton:
     output: temp("add{genome, \d+}_single_temp_resolve.xmfa"),
             temp("add{genome, \d+}_single_resolve.xmfa"),
             temp("add{genome, \d+}_single_temp_reconstruct.xmfa"),
-            temp("add{genome, \d+}_single_reconstruct.xmfa"),
+            temp("add{genome, \d+}_single_reconstruct.xmfa")
+    params: merge=merge_or_not_param
     shell:
         '''
-        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t resolve -c {input.consensus_1}
-        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t resolve -c {input.consensus_2}
+        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t resolve -c {input.consensus_1} {params.merge}
+        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t resolve -c {input.consensus_2} {params.merge}
         {SCRIPT} -x {output[1]} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1}
         {SCRIPT} -x {output[2]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2}
         '''
 
 
 rule join:
-    input:  xmfa_one="add{genome}_pairblocks.xmfa",
-            xmfa_two="add{genome}_single_reconstruct.xmfa"
+    input:  xmfa_pair="add{genome}_pairblocks.xmfa",
+            xmfa_singlealign="add{genome}_single_reconstruct.xmfa",
+            xmfa_orig=resolve_or_not
     output: temp("add{genome, \d+}_joined.xmfa")
-    shell:
-        "{SCRIPT} -x {input.xmfa_one} -y {input.xmfa_two} -p . -n add{wildcards.genome} -t join "
+    run:
+        # check if singleton reconstruct is empty
+        count = 0
+        with open(input.xmfa_singlealign) as f:
+            for line in f:
+                if line[0] == ">":
+                    count=1
+                    break
+        empty = (count == 0)
+
+        # if singleton reconstruct is empty (at least one of genomes does not have singletons)
+        # copy file from before split and sort it, as singletons are sorted
+        if empty:
+            shell(" ".join([SCRIPT, "-x", input.xmfa_orig, "-o 1 -t xmfa -p . -n add"+wildcards["genome"]+"_joined"]))
+        else:
+            shell(" ".join([SCRIPT, "-x", input.xmfa_pair, "-y", input.xmfa_singlealign, "-o 1 -t join -p . -n add"+wildcards["genome"]]))
+
 
 rule realign:
     input: merge_or_not
@@ -262,7 +278,7 @@ rule align_singleton:
             temp("add{genome, \d+}_2_single_consensus.fasta.blockseparated.fasta.sslist")
     run:
 
-        def copy_file(xmfa_f, cons_1, cons_2, xmfa_pair_f, output_f):
+        def empty_xmfa_file(cons_1, cons_2, xmfa_pair_f, output_f):
             header = ""
             with open(xmfa_pair_f, "r") as input:
                 for line in input:
@@ -279,16 +295,8 @@ rule align_singleton:
             header = header.replace(f1, cons_1)
             header = header.replace(f2, cons_2)
 
-            print(header) ### when copying file: coordinates of entries have to be changed!
-            ### e.g. from 900000-9000050 to 1-50
-            ### OR leave file empty when only one file has singletons
-            ### and use original alignment file in join instead of <<--- do that
-
-            with open(xmfa_f, "r") as input, open(output_f, "w") as out:
+            with open(output_f, "w") as out:
                 out.write(header)
-                for line in input:
-                    if line[0] != "#":
-                        out.write(line)
 
 
         # check if fasta files only contain header
@@ -311,19 +319,12 @@ rule align_singleton:
 
         # align if both fasta files valid
         if one and two:
-            print("align singletons")
             shell(" ".join([PMAUVE, input.consensus_1, input.consensus_2, "--output=" + output[0], "> /dev/null"]))
         else: # else create empty temporary files
             for i in range(1,5):
                 open(output[i], "w").close()
+            empty_xmfa_file(input.consensus_1, input.consensus_2, input.xmfa_pair, output[0])
 
-            if one: # if consensus is there copy consensus to output
-                copy_file(input.xmfa_1, input.consensus_1, input.consensus_2, input.xmfa_pair, output[0])
-            else: # if new is there or both empty copy new to output
-                if two:
-                    ("copy 2")
-                else:
-                    copy_file(input.xmfa_2, input.consensus_1, input.consensus_2, input.xmfa_pair, output[0])
 
 rule maf:
     input: xmfa="{genome}.xmfa",

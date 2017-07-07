@@ -68,9 +68,13 @@ class Alignment:
         if order in self.genomes or order == 0:
             sorted_lcbs = sorted(self.lcbs, key=lambda lcb: lcb.number)
 
+            # if order not '0', sort lcbs with genome_nr == order by start coordinate
+            # and keep rest sorted by blocknr
             if order > 0:
                 sorted_lcbs = sorted(sorted_lcbs, key=lambda lcb, order=order:
                                      lcb.get_entry(order).start if lcb.get_entry(order) is not None else sys.maxsize)
+
+
             return sorted_lcbs
         else:
             raise ParameterError("order", order,
@@ -286,7 +290,7 @@ class Consensus:
         self.fasta_file = os.path.abspath(fasta_file)
         self.block_start_indices = []
 
-    def from_alignment(self, alignment, order, fasta_file):
+    def from_alignment(self, alignment, fasta_file, order):
         self.order = int(order)
         self.xmfa_file = alignment.xmfa_file
         self.fasta_file = os.path.abspath(fasta_file)

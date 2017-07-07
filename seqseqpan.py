@@ -139,6 +139,7 @@ def main():
                         print(e.message)
                     else:
                         if args.task == "resolve":
+                            #pdb.set_trace()
                             resolveblocks_align = resolver.resolve_multialignment(align, consensus,
                                                                                   consensus_genome_nr=consensus_genome_nr,
                                                                                   new_genome_nr=new_genome_nr)
@@ -155,7 +156,6 @@ def main():
 
                         elif args.task == "reconstruct":
                             try:
-                                pdb.set_trace()
                                 org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                                 reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
@@ -217,11 +217,8 @@ if __name__ == '__main__':
                         required=False)
     parser.add_argument("-m", "--merge", dest="merge",
                         help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
-    #parser.add_argument("-s", "--singlealignment", dest="single",
-    #                    help="In resolve-step: Create XMFA files with single blocks of each genome.\n"
-    #                         "In reconstruct-step: Use alignment of single blocks.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0,
-                        help="ordering of output (0,1,2,...) [default: %(default)s]", required=False)
+                        help="ordering of XMFA output (0,1,2,...) [default: %(default)s]", required=False)
     parser.add_argument("-t", "--task", dest="task",
                         help="what to do (consensus|resolve|realign|xmfa|map|merge|separate|maf|remove|split|extract|reconstruct|blockcountsplit|join)",
                         choices=["consensus", "resolve", "realign", "xmfa", "maf", "map", "merge", "separate", "remove",
@@ -258,20 +255,16 @@ if __name__ == '__main__':
     if (args.task == "resolve" or args.task == "reconstruct") and args.consensus_f is None:
         parser.error("Please provide a consensus-sequence file (-c/--consensus) for the \"resolve\"-task (-t/--task).")
 
- #   if args.task == "reconstruct" and args.single and args.single_xmfa_f is None:
- #       parser.error("Please provide a XMFA file with single blocks alignment (-z/--singlealignmentxmfa) "
- #                    "for the \"reconstruct\"-task (-t/--task) or do not use -s/--singlealignment flag.")
-
     if args.task == "join" and args.xmfa_f_2 is None:
-        parser.error("Please provide second XMFA to be joined with input XMFA file.")
+        parser.error("Please provide second XMFA to be joined with input XMFA file (-y/--xmfa_two.")
 
     if args.task == "remove" and args.rm_genome is None:
-        parser.error("Please provide the number of the genome to be removed.")
+        parser.error("Please provide the number of the genome to be removed (-r/--removegenome).")
 
     if (args.task == "maf" or args.task == "split") and args.genome_desc_f is None:
-        parser.error("Please provide the genome description file.")
+        parser.error("Please provide the genome description file (-g/--genome_desc).")
 
     if args.task == "extract" and args.region is None:
-        parser.error("Please provide the region to extract.")
+        parser.error("Please provide the region to extract (-e/--extractregion).")
 
     main()

@@ -334,7 +334,7 @@ class Writer:
         filename = os.path.abspath(path + "/" + name + "_consensus.fasta")
 
         consensus = Consensus()
-        consensus.from_alignment(alignment, order, filename)
+        consensus.from_alignment(alignment, filename, order)
 
         self._write_consensus_index(alignment, filename, order)
         self._write_consensus_separator(consensus, alignment, filename)
