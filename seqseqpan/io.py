@@ -423,7 +423,7 @@ class Processor:
                     while not line.startswith("-------"):
                         line = res.readline()
                     line = res.readline()
-                    if line.split(sep='\t')[8] == "-": # query aligned on "-" strand -> cannot be used as realignment!
+                    if line == '' or line.split(sep='\t')[8] == "-": # query aligned on "-" strand -> cannot be used as realignment!
                         raise ValueError()
                 return SearchIO.read(output_file, "blat-psl", pslx=True)
             else:
@@ -433,6 +433,7 @@ class Processor:
             return None
         finally:
             with contextlib.suppress(FileNotFoundError):  # in case files were never created...
-                os.remove(filename_one)
-                os.remove(filename_two)
-                os.remove(output_file)
+                pass
+                #os.remove(filename_one)
+                #os.remove(filename_two)
+                #os.remove(output_file)
