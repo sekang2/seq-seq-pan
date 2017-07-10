@@ -131,9 +131,9 @@ class Resolver:
         if delim_positions[-1] < lcb.length:
             indices = indices + [lcb.length]
 
-        for i in range(len(indices) - 1):
+        new_entry = lcb.get_entry(new_genome_nr)
 
-            new_entry = lcb.get_entry(new_genome_nr)
+        for i in range(len(indices) - 1):
 
             if new_entry is None:
                 entries = []

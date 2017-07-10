@@ -418,6 +418,13 @@ class Processor:
 
         try:
             if returncode == 0:
+                with open(output_file, "r") as res:
+                    line = res.readline()
+                    while not line.startswith("-------"):
+                        line = res.readline()
+                    line = res.readline()
+                    if line.split(sep='\t')[8] == "-": # query aligned on "-" strand -> cannot be used as realignment!
+                        raise ValueError()
                 return SearchIO.read(output_file, "blat-psl", pslx=True)
             else:
                 raise ValueError()

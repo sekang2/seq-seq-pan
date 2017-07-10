@@ -372,6 +372,9 @@ class SingletonAligner:
         pairlcbs = []
         for lcb in alignment.lcbs:
             if len(lcb.entries) == 1:
+                if lcb.entries[0].strand == "-":
+                    lcb.reverse_complement_entries()
+
                 if lcb.entries[0].genome_nr == 1:
                     single_alignment_1.add_lcb(lcb)
                 elif lcb.entries[0].genome_nr == 2:
