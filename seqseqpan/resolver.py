@@ -1,5 +1,6 @@
 import bisect
 import re
+import pdb
 
 from seqseqpan.exception import ConsensusXMFAInputError, ConsensusCorruptError
 from seqseqpan.base import *
@@ -92,12 +93,12 @@ class Resolver:
         # check whether consensus_entry overlaps delimiter position
 
         # check if entry contains delimiter sequence less than normal length at beginning
-        intervals = [idx - 1000 for idx in sorted(consensus.block_start_indices)[1:] if
-                     0 <= (idx - consensus_entry.start) <= len(BLOCK_DELIMITER)]
+        intervals = [idx - len(BLOCK_DELIMITER) for idx in sorted(consensus.block_start_indices)[1:] if
+                     0 <= (idx - consensus_entry.start) < len(BLOCK_DELIMITER)]
 
         # check for all overlaps
-        intervals.extend([idx - 1000 for idx in sorted(consensus.block_start_indices)[1:] if
-                          consensus_entry.start < (idx - 1000) < consensus_entry.end])
+        intervals.extend([idx - len(BLOCK_DELIMITER) for idx in sorted(consensus.block_start_indices)[1:] if
+                          consensus_entry.start <= (idx - len(BLOCK_DELIMITER)) < consensus_entry.end])
 
         for startInterval in intervals:
             start_within_block = startInterval - consensus_entry.start + 1
