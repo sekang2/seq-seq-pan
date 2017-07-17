@@ -47,42 +47,67 @@ class Merger:
             consensus_entry = lcb.get_entry(consensus_genome_nr)
             prepend = False
             append = False
+            use_prev = False
+            use_next = False
+            prev_gap = False
+            next_gap = False
             to_reverse_complement = False
 
-            neighbour_new_entry = None
+            next_new_entry = None
+            prev_new_entry = None
 
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
             if consensus_entry is None and new_entry is not None and len(new_entry.sequence) <= block_length:
 
+                #pdb.set_trace()
                 nr_gaps = len(new_entry.sequence)
 
-                # try to append to previous entry
+                # check if can be appended to previous entry and if that ends with a gap
                 if i > 0:
-                    neighbour_lcb = merged_split_lcbs[-1]
-                    neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
-                    if neighbour_new_entry is not None and (new_entry.start - neighbour_new_entry.end) == 1:
+                    prev_lcb = merged_split_lcbs[-1]
+                    prev_new_entry = prev_lcb.get_entry(new_genome_nr)
+                    if prev_new_entry is not None and (new_entry.start - prev_new_entry.end) == 1:
+                        use_prev = True
+                        if (prev_new_entry.strand == "+" and prev_new_entry.sequence[-1] == "-") \
+                                or ( prev_new_entry.strand == "-" and prev_new_entry.sequence[0] == "-"):
+                            prev_gap = True
 
-                        if neighbour_new_entry.strand == "+":
-                            append = True
-                        else:
-                            prepend = True
 
-                        if new_entry.strand != neighbour_new_entry.strand:
-                            to_reverse_complement = True
+                # check if can be prepended to next entry and if that starts with a gap
+                if len(lcbs) > (i+1):
+                    next_lcb = lcbs[i + 1]
+                    next_new_entry = next_lcb.get_entry(new_genome_nr)
+                    if next_new_entry is not None and (next_new_entry.start - new_entry.end) == 1:
+                        use_next = True
+                        if (next_new_entry.strand == "+" and next_new_entry.sequence[0] == "-")\
+                                or (next_new_entry.strand == "-" and next_new_entry.sequence[-1] == "-"):
+                            next_gap = True
 
-                # previous entry did not work, try to prepend to next entry
-                if not prepend and not append and len(lcbs) > i:
-                    neighbour_lcb = lcbs[i + 1]
-                    neighbour_new_entry = neighbour_lcb.get_entry(new_genome_nr)
-                    if neighbour_new_entry is not None and (neighbour_new_entry.start - new_entry.end) == 1:
 
-                        if neighbour_new_entry.strand == "+":
-                            prepend = True
-                        else:
-                            append = True
+                neighbour_new_entry = None
+                # if both, choose the one with gap at start or end
+                if (not next_gap) and use_prev:
 
-                        if new_entry.strand != neighbour_new_entry.strand:
-                            to_reverse_complement = True
+                    neighbour_new_entry = prev_new_entry
+                    neighbour_lcb = prev_lcb
+
+                    if neighbour_new_entry.strand == "+":
+                        append = True
+                    else:
+                        prepend = True
+
+                elif next:
+                    neighbour_new_entry = next_new_entry
+                    neighbour_lcb = next_lcb
+                    if neighbour_new_entry.strand == "+":
+                        prepend = True
+                    else:
+                        append = True
+
+                if neighbour_new_entry is not None:
+                    if new_entry.strand != neighbour_new_entry.strand:
+                        to_reverse_complement = True
+
 
             if append or prepend:
 
@@ -249,10 +274,10 @@ class Realigner:
                     seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
 
                     if not (seq_one_nogap == '' or seq_two_nogap == ''):  # else: do nothing for current interval
-                        if (seq_end - seq_start) < 1000:
+                        if (seq_end - seq_start) < 1900: #https://github.com/biopython/biopython/pull/782
                             alignments = pairwise2.align.globalxs(seq_one_nogap.upper(),
                                                                   seq_two_nogap.upper(),
-                                                                  -0.5, -0.1,
+                                                                  -0.5, -0.1, #default
                                                                   one_alignment_only=True)
                             if len(alignments) > 0:
                                 max_score = max([x[2] for x in alignments])
