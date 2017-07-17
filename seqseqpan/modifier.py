@@ -96,7 +96,7 @@ class Merger:
                     else:
                         prepend = True
 
-                elif next:
+                elif use_next:
                     neighbour_new_entry = next_new_entry
                     neighbour_lcb = next_lcb
                     if neighbour_new_entry.strand == "+":
@@ -274,7 +274,7 @@ class Realigner:
                     seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
 
                     if not (seq_one_nogap == '' or seq_two_nogap == ''):  # else: do nothing for current interval
-                        if (seq_end - seq_start) < 1900: #https://github.com/biopython/biopython/pull/782
+                        if (seq_end - seq_start) < 1000: #https://github.com/biopython/biopython/pull/782
                             alignments = pairwise2.align.globalxs(seq_one_nogap.upper(),
                                                                   seq_two_nogap.upper(),
                                                                   -0.5, -0.1, #default
