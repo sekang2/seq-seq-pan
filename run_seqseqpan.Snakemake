@@ -34,25 +34,31 @@ def output_xmfa(wildcards):
     xmfa_f = reconstruct_or_not({"genome": str(len(GENOME_NAMES)-1)})
     return xmfa_f
 
+def is_first_align(genome):
+    if "_single" in genome:
+        return False
+    else:
+       return(int(genome) <=1)
+
 # reconstructing not possible/necessary for alignment of first two genomes
 def reconstruct_or_not(wildcards):
-    return ("add"+wildcards["genome"]+"_joined.xmfa" if (int(wildcards["genome"]) <= 1 and PREV_PAN == "") else "add"+wildcards["genome"]+"_reconstruct.xmfa")
+    return ("add"+wildcards["genome"]+"_joined.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "") else "add"+wildcards["genome"]+"_reconstruct.xmfa")
 
 # resolve not possible/necessary for alignment of first two genomes
-def resolve_or_not(wildcards):
-    return ("add"+wildcards["genome"]+"_realign.xmfa"  if (int(wildcards["genome"]) <= 1 and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
+def resolved_or_not(wildcards):
+    return ("add"+wildcards["genome"]+"_align.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
 
 # merge after alignment
-def merge_or_not(wildcards):
-    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else "add"+wildcards["genome"]+"_align.xmfa")
+def merged_or_not(wildcards):
+    return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else resolved_or_not(wildcards))
 
 # merge after alignment of single blocks
-#def merge_or_not_singletons(wildcards):
+#def merged_or_not_singletons(wildcards):
 #    my_wc = wildcards
 #    my_wc["genome"] = wildcards["genome"] + "_single"
-#    return merge_or_not(my_wc)
+#    return merged_or_not(my_wc)
 
-def merge_or_not_param(wildcards):
+def merged_or_not_param(wildcards):
     return ("-m" if MERGE else "")
 
 def prev_pan_or_not_param(wildcards):
@@ -148,12 +154,13 @@ rule consensus_singleton:
 
 
 rule resolve:
-    input:  xmfa= "add{genome}_realign.xmfa",
+    input:  xmfa= "add{genome}_align.xmfa",
             consensus=consensus_file
     output: temp("add{genome,\d+}_resolve.xmfa")
-    params: merge=merge_or_not_param
+#    params: merge=merged_or_not_param
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]} {params.merge}"
+        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]}"
+        #" {params.merge}"
         
 rule reconstruct:
     input: xmfa_prev= lambda wildcards: reconstruct_or_not({"genome":prev_genome(wildcards)}),
@@ -176,24 +183,41 @@ rule reconstruct_singleton:
            ci_1="add{genome,\d+}_1_single_consensus.fasta.idx",
            ci_2="add{genome,\d+}_2_single_consensus.fasta.idx"
 
-    output: temp("add{genome, \d+}_single_temp_resolve.xmfa"),
-            temp("add{genome, \d+}_single_resolve.xmfa"),
-            temp("add{genome, \d+}_single_temp_reconstruct.xmfa"),
+    output: temp("add{genome, \d+}_single_temp_reconstruct.xmfa"),
             temp("add{genome, \d+}_single_reconstruct.xmfa")
-    params: merge=merge_or_not_param
+    #params: merge=merged_or_not_param
     shell:
         '''
-        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t resolve -c {input.consensus_1} {params.merge}
-        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t resolve -c {input.consensus_2} {params.merge}
-        {SCRIPT} -x {output[1]} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1}
-        {SCRIPT} -x {output[2]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2}
+        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1}
+        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2}
+        '''
+
+
+rule resolve_singleton:
+    input: xmfa="add{genome, \d+}_single_align.xmfa",
+           xmfa_prev_1="add{genome, \d+}_1_single.xmfa",
+           xmfa_prev_2="add{genome, \d+}_2_single.xmfa",
+           consensus_1="add{genome,\d+}_1_single_consensus.fasta",
+           consensus_2="add{genome,\d+}_2_single_consensus.fasta",
+           cb_1="add{genome,\d+}_1_single_consensus.fasta.blockseparated.fasta",
+           cb_2="add{genome,\d+}_2_single_consensus.fasta.blockseparated.fasta",
+           cbi_1="add{genome,\d+}_1_single_consensus.fasta.blockseparated.idx",
+           cbi_2="add{genome,\d+}_2_single_consensus.fasta.blockseparated.idx",
+           ci_1="add{genome,\d+}_1_single_consensus.fasta.idx",
+           ci_2="add{genome,\d+}_2_single_consensus.fasta.idx"
+    output: temp("add{genome, \d+}_single_temp_resolve.xmfa"),
+            temp("add{genome, \d+}_single_resolve.xmfa")
+    shell:
+        '''
+        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t resolve -c {input.consensus_1}
+        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t resolve -c {input.consensus_2}
         '''
 
 
 rule join:
     input:  xmfa_pair="add{genome}_pairblocks.xmfa",
             xmfa_singlealign="add{genome}_single_reconstruct.xmfa",
-            xmfa_orig=resolve_or_not
+            xmfa_orig="add{genome}_realign.xmfa"
     output: temp("add{genome, \d+}_joined.xmfa")
     run:
         # check if singleton reconstruct is empty
@@ -214,14 +238,14 @@ rule join:
 
 
 rule realign:
-    input: merge_or_not
+    input: merged_or_not
     output: temp("add{genome,\d+(_single)*}_realign.xmfa")
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
 
         
 rule merge:
-    input: "add{genome}_align.xmfa"
+    input: resolved_or_not
     output: temp("add{genome,\d+(_single)*}_merge.xmfa")
     shell:
         "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
@@ -256,7 +280,7 @@ rule align:
         '''
 
 rule genome_count_split:
-    input: resolve_or_not
+    input: "add{genome}_realign.xmfa"
     output: temp("add{genome, \d+}_pairblocks.xmfa"),
             temp("add{genome,\d+}_1_single.xmfa"),
             temp("add{genome,\d+}_2_single.xmfa")

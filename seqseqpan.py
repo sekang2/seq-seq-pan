@@ -143,19 +143,12 @@ def main():
                             resolveblocks_align = resolver.resolve_multialignment(align, consensus,
                                                                                   consensus_genome_nr=consensus_genome_nr,
                                                                                   new_genome_nr=new_genome_nr)
-                            if args.merge:
-                                res_merge = merger.merge_lcbs(resolveblocks_align, consensus_genome_nr=consensus_genome_nr,
-                                                              new_genome_nr=new_genome_nr, block_length=args.lcb_length)
-                                res_merge = merger.merge_lcbs(res_merge, consensus_genome_nr=new_genome_nr,
-                                                              new_genome_nr=consensus_genome_nr, block_length=args.lcb_length)
-                                # realign step necessary in case of consecutive gaps introduced by merging
-                                resolveblocks_align = realigner.realign(res_merge, processor, args.lcb_length + 1)
-
                             writer.write_xmfa(resolveblocks_align, args.output_p, args.output_name + "_resolve",
                                               args.order, check_invalid=False)
 
                         elif args.task == "reconstruct":
                             try:
+                                pdb.set_trace()
                                 org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                                 reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
@@ -215,8 +208,6 @@ if __name__ == '__main__':
                         help="file prefix and sequence header for consensus FASTA / XFMA file", required=True)
     parser.add_argument("-c", "--consensus", dest="consensus_f", help="consensus FASTA file used in XMFA",
                         required=False)
-    parser.add_argument("-m", "--merge", dest="merge",
-                        help="Merge small blocks to previous or next block in resolve-step.", action='store_true')
     parser.add_argument("-o", "--order", dest="order", type=int, default=0,
                         help="ordering of XMFA output (0,1,2,...) [default: %(default)s]", required=False)
     parser.add_argument("-t", "--task", dest="task",

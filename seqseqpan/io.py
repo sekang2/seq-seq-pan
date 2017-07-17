@@ -433,7 +433,7 @@ class Processor:
             return None
         finally:
             with contextlib.suppress(FileNotFoundError):  # in case files were never created...
-                pass
-                #os.remove(filename_one)
-                #os.remove(filename_two)
-                #os.remove(output_file)
+                #pass
+                os.remove(filename_one)
+                os.remove(filename_two)
+                os.remove(output_file)
