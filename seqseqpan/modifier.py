@@ -63,7 +63,7 @@ class Merger:
                 nr_gaps = len(new_entry.sequence)
 
                 # check if can be appended to previous entry and if that ends with a gap
-                if i > 0:
+                if len(merged_split_lcbs) > 0:
                     prev_lcb = merged_split_lcbs[-1]
                     prev_new_entry = prev_lcb.get_entry(new_genome_nr)
                     if prev_new_entry is not None and (new_entry.start - prev_new_entry.end) == 1:

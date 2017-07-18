@@ -148,7 +148,7 @@ def main():
 
                         elif args.task == "reconstruct":
                             try:
-                                pdb.set_trace()
+                                #pdb.set_trace()
                                 org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                                 reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
