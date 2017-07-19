@@ -132,10 +132,10 @@ rule fn_translate:
 rule consensus:
     input: reconstruct_or_not
     
-    output: temp("add{genome,\d+(_[12]_single)*}_consensus.fasta.blockseparated.fasta"),
-            temp("add{genome,\d+(_[12]_single)*}_consensus.fasta.blockseparated.idx"),
-            temp("add{genome,\d+(_[12]_single)*}_consensus.fasta.idx"),
-            temp("add{genome,\d+(_[12]_single)*}_consensus.fasta")
+    output: temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta.blockseparated.fasta"),
+            temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta.blockseparated.idx"),
+            temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta.idx"),
+            temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta")
     shell:
         #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
         "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
