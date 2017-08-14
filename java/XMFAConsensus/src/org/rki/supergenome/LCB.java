@@ -19,12 +19,13 @@ public class LCB {
 	public static char BASE_H = (char)(BASE_A | BASE_C | BASE_T);
 	public static char BASE_V = (char)(BASE_A | BASE_C | BASE_G);
 	public static char BASE_N = 0b1111;
+	public static char BASE_X = 0b1111; //same as N
 	public static char BASE_GAP = 0b0000;
 	public static int TABLEOFFSET = 45;
 	public static char[] BASETABLE = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //[0]: '-', -> offset: 45
-			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, 0, BASE_Y, 0, //[20]: 'A' 
+			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, BASE_X, BASE_Y, 0, //[20]: 'A' 
 			0, 0, 0, 0, 0, 0, //[46]-[51]: '[' - '`'
-			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, 0, BASE_Y, 0}; //[52]: 'a'
+			BASE_A, BASE_B, BASE_C, BASE_D, 0, 0, BASE_G, BASE_H, 0, 0, BASE_K, 0, BASE_M, BASE_N, 0, 0, 0, BASE_R, BASE_S, BASE_T, 0, BASE_V, BASE_W, BASE_X, BASE_Y, 0}; //[52]: 'a'
 //	public static char[] REVTABLE = {'-', 'A', 'C', 'M', 'G', 'R', 'S', 'V', 'T', 'W', 'Y', 'H', 'K', 'D', 'B', 'N'};
 
 	
