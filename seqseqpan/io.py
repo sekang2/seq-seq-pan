@@ -312,11 +312,14 @@ class Writer:
                     chrom_start = chrom_starts[0]
                     chrom = genome.chromosomes[chrom_start]
 
-                    start = entry.start - chrom_start
+                    if entry.strand == "+":
+                        start = entry.start - chrom_start
+                    else:
+                        start = chrom["length"] - entry.end # MAF format: This is a zero-based number. If the strand field is '-' then this is the start relative to the reverse-complemented source sequence
 
                     output.write(self._maf_entry_header.format(chrom["desc"].replace(" ", "_"), start,
-                                                               ((entry.end - entry.start) + 1), entry.strand,
-                                                               chrom["length"], entry.sequence))
+                                                                   ((entry.end - entry.start) + 1), entry.strand,
+                                                                   chrom["length"], entry.sequence))
 
     def write_mapping_coordinates(self, source, destinations, coords_dict, path, name):
         with open(os.path.abspath(path + "/" + name + ".txt"), "w") as output:

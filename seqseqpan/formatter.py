@@ -1,11 +1,13 @@
 import bisect
 
 from seqseqpan.base import *
+from seqseqpan.resolver import Resolver
 
 
 class Splitter:
     def __init__(self, alignment, chromosome_desc):
         self.alignment = alignment
+        self.resolver = Resolver()
         for nr, genome in alignment.genomes.items():
             genome.add_chromosomes(chromosome_desc[nr])
 
@@ -50,16 +52,18 @@ class Splitter:
                 for e_idx in range(len(entries)):
 
                     entry = lcb.entries[e_idx]
-                    start = cur_starts[e_idx]
+                    new_entry = self.resolver.get_split_entry(entry, split_coords[c_idx - 1], split_coords[c_idx])
+                    if new_entry is not None:
+                   # start = cur_starts[e_idx]
 
-                    seq = entry.sequence[split_coords[c_idx - 1]:split_coords[c_idx]]
+                    #seq = entry.sequence[split_coords[c_idx - 1]:split_coords[c_idx]]
 
-                    non_gaps = len(seq) - seq.count("-")
+                    #non_gaps = len(seq) - seq.count("-")
 
-                    if non_gaps > 0:
-                        cur_starts[e_idx] = start + non_gaps
-                        end = cur_starts[e_idx] - 1
-                        new_entry = SequenceEntry(entry.genome_nr, start, end, entry.strand, seq)
+                    #if non_gaps > 0:
+                     #   cur_starts[e_idx] = start + non_gaps
+                      #  end = cur_starts[e_idx] - 1
+                      #  new_entry = SequenceEntry(entry.genome_nr, start, end, entry.strand, seq)
                         lcbs[c_idx - 1].add_entries(new_entry)
             return lcbs
         else:
