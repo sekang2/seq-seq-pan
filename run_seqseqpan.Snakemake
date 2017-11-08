@@ -120,12 +120,12 @@ rule fn_translate:
         cp {input.c} {output.c}
         cp {input.xmfa} {output.xmfa}
         
-        sed -i "1 s/$name/$out/g" {output.c}
-        sed -i "1 s/$name/$out/g" {output.cb}
-        sed -i "1 s/$name/$out/" {output.ci}
-        sed -i "2 s/$name/$out/" {output.ci}
-        sed -i "1 s/$name/$out/" {output.cbi}
-        sed -i "2 s/$name/$out/" {output.cbi}
+        sed -i "1 s|$name|$out|g" {output.c}
+        sed -i "1 s|$name|$out|g" {output.cb}
+        sed -i "1 s|$name|$out|" {output.ci}
+        sed -i "2 s|$name|$out|" {output.ci}
+        sed -i "1 s|$name|$out|" {output.cbi}
+        sed -i "2 s|$name|$out|" {output.cbi}
         '''
 
         
@@ -325,21 +325,25 @@ rule align_singleton:
 
         # check if fasta files only contain header
         count = 0
+        length = 0
         with open(input.consensus_1) as f:
             first_line = f.readline()
             for line in f:
                 count = 1
+                length = len(line)
                 break
-        one = (count > 0)
+        one = (count > 0 and length > 23)
 
         count = 0
+        length = 0
         with open(input.consensus_2) as f:
             first_line = f.readline()
             for line in f:
                 count = 1
+                length = len(line)
                 break
 
-        two = (count > 0)
+        two = (count > 0 and length > 23)
 
         # align if both fasta files valid
         if one and two:
