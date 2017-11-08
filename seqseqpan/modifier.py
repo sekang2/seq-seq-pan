@@ -3,7 +3,6 @@ import itertools
 from operator import itemgetter
 import math
 import sys
-import pdb
 
 from Bio import pairwise2
 
@@ -153,6 +152,7 @@ class Merger:
 class Realigner:
     # local realignment around overlapping or consecutive gaps in two sequences
     # if border_aln_length is not None align only sequences at block border up to given length
+
     def realign(self, alignment, processor, border_aln_length=0):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
@@ -288,6 +288,8 @@ class Realigner:
 
                                 aln_seq_one = alignments[0][0]
                                 aln_seq_two = alignments[0][1]
+
+
                             else:
                                 # no alignment, do nothing for current interval
                                 break
@@ -295,6 +297,7 @@ class Realigner:
                         else:
                             # do external blat alignment
                             aln_seq_one, aln_seq_two = self._external_blat(seq_one_nogap, seq_two_nogap, processor)
+
 
                             if aln_seq_one is not None:
                                 max_length = len(aln_seq_one)
@@ -315,6 +318,24 @@ class Realigner:
         return seq_one, seq_two
 
     def _external_blat(self, seq_one, seq_two, processor):
+
+        def _check_tuple_overlap(tuple_list):
+            num_tuple = len(tuple_list)
+
+            last_ok_end = -1
+
+            exclude_idx = []
+
+            #overlap_detected = False
+            for idx in range(num_tuple):
+                if tuple_list[idx][0] < last_ok_end:  #current start smaller than last end -> exclude
+                    exclude_idx.append(idx)
+                else:
+                    last_ok_end = tuple_list[idx][1]  # current tuple is ok -> store end
+
+            return exclude_idx
+
+
         align_result = processor.external_blat(seq_one, seq_two)
         if align_result is not None:
             # seq_one equals hit   seq_two equals query
@@ -336,19 +357,27 @@ class Realigner:
 
             if match.is_fragmented:
 
-                hspfrag_num = len(match.hit_range_all)
+                # in really rare cases fragments are overlapping!
+                exclude_keys = _check_tuple_overlap(match.hit_range_all)
+                exclude_keys = exclude_keys + _check_tuple_overlap(match.query_range_all)
 
-                for hspfrag_idx in range(hspfrag_num):
+                hspfrag_keys = list(set(range(len(match.hit_range_all))) - set(exclude_keys))
 
-                    hspfrag = match[hspfrag_idx]
+                hspfrag_key_num = len(hspfrag_keys)
+
+                for hspfrag_idx in range(hspfrag_key_num):
+
+                    hspfrag_key = hspfrag_keys[hspfrag_idx]
+                    hspfrag = match[hspfrag_key]
 
                     seq_one_list.append(str(hspfrag.hit.seq))
                     seq_two_list.append(str(hspfrag.query.seq))
 
                     # add sequences between aligned intervals to sequences
-                    if hspfrag_idx < (hspfrag_num - 1):
-                        next_hspfrag = match[hspfrag_idx + 1]
+                    if hspfrag_idx < (hspfrag_key_num - 1):
+                        next_hspfrag = match[hspfrag_keys[hspfrag_idx + 1]]
                         inter_hit_len = next_hspfrag.hit_start - hspfrag.hit_end
+
                         if inter_hit_len > 0:
                             seq_one_list.append(seq_one[hspfrag.hit_end:next_hspfrag.hit_start])
                             seq_two_list.append("-" * inter_hit_len)
