@@ -5,6 +5,8 @@
 This program was implemented in Python and requires Python3.4 or higher.<br/>
 
 It depends on the following Biopython modules: SeqIO, Seq, SeqRecord and pairwise2.<br/>
+It depends on the following software: blat <br\>
+
 <br/>  
 Software required for running pipeline for set of genomes
 * snakemake
