@@ -11,6 +11,45 @@ Software required for running pipeline for set of genomes
 * progressiveMauve
 * Java8
 
+
+## Pipeline
+### Usage
+#### Build pan-genome from set of sequences
+```
+snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
+```
+
+#### Add set of sequences to existing pan-genome
+```
+snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_new.txt outfilename=TB_example_extended merge=True pangenome=TB_example.xmfa
+```
+
+#### Config
+
+| name        | description |
+|-------------|-------------|
+| genomefile  |One line per genome with full path to .FASTA files. |
+| outfilename |Prefix for all final output files.|
+| merge       |Optional, default = True. Do you want to include the merging steps?|
+| pangenome   |Path to exisiting pan-genome (pangenome.XMFA). Accompanying genome description file has to be present in same folder (pangenome_genomedescription.TXT).|
+| pmauve      |Optional, path to progressiveMauve executable. If not set, "progressiveMauve" is assumed to be included in $PATH.|
+| blat        |Optional, path to blat executable. If not set, "blat" is assumed to be included in $PATH.|
+---
+
+#### Representation of pipeline
+
+Pipeline steps are represented as blocks, dashed ones are optional. The first iteration is different and is marked with the blue arrow.
+
+![](representation/seq-seq-pan-pipeline.png)
+
+
+## Pan-genome data structure
+For full representation of pan-genome and to be able to work with the data structure, only the .XMFA and the genome_description files are needed.
+
+.FASTA files can be discarded as all sequences can be extracted from the pan-genome, the consensus sequence can be constructed from the .XMFA file at any time.
+
+
+
 ---
 ## Program
 ### Usage
@@ -90,43 +129,6 @@ Use the genome_description.py script to generate the genome description file for
 ```
 python3.4 genomedescription.py -i GENOME_LIST -o GENOME_DESC_F
 ```
-
-## Pipeline
-### Usage
-#### Build pan-genome from set of sequences
-```
-snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
-```
-
-#### Add set of sequences to existing pan-genome
-```
-snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_new.txt outfilename=TB_example_extended merge=True pangenome=TB_example.xmfa
-```
-
-#### Config
-
-| name        | description |
-|-------------|-------------|
-| genomefile  |One line per genome with full path to .FASTA file. |
-| outfilename |Prefix for all final output files.|
-| merge       |Optional, default = True. Do you want to include the merging steps?|
-| pangenome   |Path to exisiting pan-genome (pangenome.XMFA). Accompanying genome description file has to be present in same folder (pangenome_genomedescription.TXT).|
-| pmauve      |Optional, path to progressiveMauve executable. If not set, "progressiveMauve" is assumed to be included in $PATH.|
-
----
-
-#### Representation of pipeline
-
-Pipeline steps are represented as blocks, dashed ones are optional. The first iteration is different and is marked with the blue arrow.
-
-![](representation/seq-seq-pan-pipeline.png)
-
-
-## Pan-genome data structure
-For full representation of pan-genome and to be able to work with the data structure, only the .XMFA and the genome_description files are needed.
-
-.FASTA files can be discarded as all sequences can be extracted from the pan-genome, the consensus sequence can be constructed from the .XMFA file at any time.
-
 
 ## License
 FreeBSDLicense
