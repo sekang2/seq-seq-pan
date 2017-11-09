@@ -24,7 +24,7 @@ def main():
     separator = Separator()
     remover = Remover()
     singletonAligner = SingletonAligner()
-    processor = Processor(args.output_p)
+    processor = Processor(args.output_p, blat=args.blat_path)
 
     if args.task == "map":
         try:
@@ -95,6 +95,8 @@ def main():
 
                 elif args.task == "realign":
                     try:
+                        print(processor.blat)
+                        pdb.set_trace()
                         realign = realigner.realign(align, processor)
                     except ConsensusXMFAInputError as e:
                         print(e.message)
@@ -228,7 +230,9 @@ if __name__ == '__main__':
                                                                     "Multiple chromosomes a genome must be listed in the same order as in original FASTA file.\n")
     parser.add_argument("-e", "--extractregion", dest="region", help="Region to extract in the form genome_nr:start-end (one based and inclusive) or only genome_nr for full sequence.")
 
-    parser.add_argument("-y", "--xmfa_two", dest="xmfa_f_2", help="XMFA file to be joined with input file")
+    parser.add_argument("-y", "--xmfa_two", dest="xmfa_f_2", help="XMFA file to be joined with input file.")
+
+    parser.add_argument("--blat", dest="blat_path", help="Path to blat binary if not in PATH.", default="blat")
 
     args = parser.parse_args()
 

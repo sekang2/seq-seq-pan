@@ -25,6 +25,7 @@ if PREV_PAN != "":
      PREV_PAN = re.sub("\.xmfa$", "", PREV_PAN)
 
 PMAUVE = config.get("pmauve", "progressiveMauve")
+BLAT = config.get("blat", "blat")
 
 ruleorder: use_prev_pan > resolve
 
@@ -241,7 +242,7 @@ rule realign:
     input: merged_or_not
     output: temp("add{genome,\d+(_single)*}_realign.xmfa")
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign --blat {BLAT}"
 
         
 rule merge:
