@@ -95,8 +95,8 @@ def main():
 
                 elif args.task == "realign":
                     try:
-                        print(processor.blat)
-                        pdb.set_trace()
+                        #print(processor.blat)
+                        #pdb.set_trace()
                         realign = realigner.realign(align, processor)
                     except ConsensusXMFAInputError as e:
                         print(e.message)
