@@ -417,7 +417,7 @@ class Processor:
 
         output_file = os.path.abspath(self.path + "/" + "realigner_blat_realign.pslx")
 
-        returncode = subprocess.call(args=[self.blat, filename_one, filename_two, output_file, "-out=pslx"])
+        returncode = subprocess.call(args=[self.blat, filename_one, filename_two, output_file, "-out=pslx"], stdout=subprocess.DEVNULL)
 
         try:
             if returncode == 0:

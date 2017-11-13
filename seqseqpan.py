@@ -60,13 +60,13 @@ def main():
                     splitter = Splitter(align, chromosome_desc)
                     split = splitter.split_alignment()
 
-                    writer.write_xmfa(split, args.output_p, args.output_name + "_split", args.order)
+                    writer.write_xmfa(split, args.output_p, args.output_name + "_split", args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "remove":
                     remove = remover.remove(align, args.rm_genome)
                     merge = remover.merge(remove)
 
-                    writer.write_xmfa(merge, args.output_p, args.output_name + "_removed", args.order)
+                    writer.write_xmfa(merge, args.output_p, args.output_name + "_removed", args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "extract":
                     region = args.region
@@ -95,13 +95,11 @@ def main():
 
                 elif args.task == "realign":
                     try:
-                        #print(processor.blat)
-                        #pdb.set_trace()
                         realign = realigner.realign(align, processor)
                     except ConsensusXMFAInputError as e:
                         print(e.message)
                     else:
-                        writer.write_xmfa(realign, args.output_p, args.output_name + "_realign", args.order)
+                        writer.write_xmfa(realign, args.output_p, args.output_name + "_realign", args.order, check_invalid=(not args.quiet))
                 elif args.task == "merge":
                     try:
                         merged = merger.merge_lcbs(align, 1, 2, args.lcb_length)
@@ -109,7 +107,7 @@ def main():
                     except ConsensusXMFAInputError as e:
                         print(e.message)
                     else:
-                        writer.write_xmfa(merged, args.output_p, args.output_name + "_merge", args.order)
+                        writer.write_xmfa(merged, args.output_p, args.output_name + "_merge", args.order, check_invalid=(not args.quiet))
                 elif args.task == "consensus":
 
                     writer.write_consensus(align, args.output_p, args.output_name, args.order)
@@ -121,7 +119,7 @@ def main():
                         print("Separating LCBs: Nothing do be done -> length is smaller than 1!")
                         separated = align
 
-                    writer.write_xmfa(separated, args.output_p, args.output_name + "_separated", args.order)
+                    writer.write_xmfa(separated, args.output_p, args.output_name + "_separated", args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "resolve" or args.task == "reconstruct":
                     try:
@@ -141,7 +139,6 @@ def main():
                         print(e.message)
                     else:
                         if args.task == "resolve":
-                            #pdb.set_trace()
                             resolveblocks_align = resolver.resolve_multialignment(align, consensus,
                                                                                   consensus_genome_nr=consensus_genome_nr,
                                                                                   new_genome_nr=new_genome_nr)
@@ -150,7 +147,6 @@ def main():
 
                         elif args.task == "reconstruct":
                             try:
-                                #pdb.set_trace()
                                 org_align = parser.parse_xmfa(consensus.xmfa_file)
 
                                 reconstruct_align = resolver.reconstruct_alignment(align, consensus, org_align,
@@ -160,7 +156,7 @@ def main():
                                 print(e.message + "(" + consensus.xmfa_file + ")")
                             else:
                                 writer.write_xmfa(reconstruct_align, args.output_p, args.output_name + "_reconstruct",
-                                                  args.order)
+                                                  args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "blockcountsplit":
 
@@ -184,15 +180,15 @@ def main():
                         print(e.message + "(" + args.xmfa_f_2 + ")")
                     else:
                         joined_alignment = singletonAligner.join(align, align_2)
-                        writer.write_xmfa(joined_alignment, args.output_p, args.output_name + "_joined", args.order)
+                        writer.write_xmfa(joined_alignment, args.output_p, args.output_name + "_joined", args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "xmfa":
 
-                    writer.write_xmfa(align, args.output_p, args.output_name, args.order)
+                    writer.write_xmfa(align, args.output_p, args.output_name, args.order, check_invalid=(not args.quiet))
 
                 elif args.task == "maf":
                     chromosome_desc = parser.parse_genome_description(args.genome_desc_f)
-                    writer.write_maf(align, args.output_p, args.output_name, chromosome_desc)
+                    writer.write_maf(align, args.output_p, args.output_name, chromosome_desc, check_invalid=True)
 
             except ParameterError as e:
                 print('ERROR: Problem with parameter "{0}": Value should be {1}, but was "{2}".'.format(e.parameter,
@@ -233,6 +229,8 @@ if __name__ == '__main__':
     parser.add_argument("-y", "--xmfa_two", dest="xmfa_f_2", help="XMFA file to be joined with input file.")
 
     parser.add_argument("--blat", dest="blat_path", help="Path to blat binary if not in PATH.", default="blat")
+
+    parser.add_argument("--quiet", dest="quiet", help="Suppress warnings.", action='store_true')
 
     args = parser.parse_args()
 

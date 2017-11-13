@@ -266,9 +266,9 @@ class Realigner:
                                   (n_stretch_idx_two if n_stretch_idx_two > -1 else seq_end)
                                   )
 
-                    if border_aln_length > 0:
-                        print(seq_one[seq_start:seq_end])
-                        print(seq_two[seq_start:seq_end])
+                    #if border_aln_length > 0:
+                    #    print(seq_one[seq_start:seq_end])
+                    #    print(seq_two[seq_start:seq_end])
 
                     seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
                     seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
@@ -306,9 +306,9 @@ class Realigner:
                                 break
 
                         if max_length > 0 and max_length < ( seq_end - seq_start ):  # only use new alignment if better than old one
-                            if border_aln_length > 0:
-                                print(aln_seq_one)
-                                print(aln_seq_two)
+                            #if border_aln_length > 0:
+                            #    print(aln_seq_one)
+                            #    print(aln_seq_two)
 
                             seq_one = aln_seq_one.join([seq_one[:seq_start], seq_one[seq_end:]])
                             seq_two = aln_seq_two.join([seq_two[:seq_start], seq_two[seq_end:]])

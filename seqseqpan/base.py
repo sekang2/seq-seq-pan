@@ -94,7 +94,7 @@ class Alignment:
                 invalid = (entry.start - last_end != 1
                            or entry.end - entry.start + entry.sequence.count("-") + 1 != len(entry.sequence))
                 if invalid:
-                    print("Invalid: " + str(genome_nr) + ": last_end=" + str(last_end) + " entry.start=" + str(entry.start))
+                    #print("Invalid: " + str(genome_nr) + ": last_end=" + str(last_end) + " entry.start=" + str(entry.start))
                     break
 
                 last_end = entry.end

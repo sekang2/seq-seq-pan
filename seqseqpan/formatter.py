@@ -37,9 +37,9 @@ class Splitter:
         split_coords = sorted(list(set(split_coords)))
 
         if len(split_coords) > 1:
-            print("Splitting LCB by chromosomes: " + str(lcb.number) + " ")
-            print(split_coords)
-            print("\n")
+            #print("Splitting LCB by chromosomes: " + str(lcb.number) + " ")
+            #print(split_coords)
+            #print("\n")
             split_coords = [c - 1 for c in split_coords]
             split_coords = split_coords + [lcb.length]
 

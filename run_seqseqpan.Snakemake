@@ -45,19 +45,16 @@ def is_first_align(genome):
 def reconstruct_or_not(wildcards):
     return ("add"+wildcards["genome"]+"_joined.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "") else "add"+wildcards["genome"]+"_reconstruct.xmfa")
 
+def not_resolved(wildcards):
+    return (is_first_align(wildcards["genome"]) and PREV_PAN == "" )
+
 # resolve not possible/necessary for alignment of first two genomes
 def resolved_or_not(wildcards):
-    return ("add"+wildcards["genome"]+"_align.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
+    return ("add"+wildcards["genome"]+"_align.xmfa" if not_resolved(wildcards) else "add"+wildcards["genome"]+"_resolve.xmfa")
 
 # merge after alignment
 def merged_or_not(wildcards):
     return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else resolved_or_not(wildcards))
-
-# merge after alignment of single blocks
-#def merged_or_not_singletons(wildcards):
-#    my_wc = wildcards
-#    my_wc["genome"] = wildcards["genome"] + "_single"
-#    return merged_or_not(my_wc)
 
 def merged_or_not_param(wildcards):
     return ("-m" if MERGE else "")
@@ -83,6 +80,7 @@ def prev_genome(wildcards):
 
 def prev_joined_filename(wildcards):
     return "".join(["add", prev_genome(wildcards), "_joined.xmfa"])
+
 
 #  "xmfa_prev" always needed when using consensus! --> xmfa file used to build consensus
 
@@ -158,10 +156,8 @@ rule resolve:
     input:  xmfa= "add{genome}_align.xmfa",
             consensus=consensus_file
     output: temp("add{genome,\d+}_resolve.xmfa")
-#    params: merge=merged_or_not_param
     shell:
         "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]}"
-        #" {params.merge}"
         
 rule reconstruct:
     input: xmfa_prev= lambda wildcards: reconstruct_or_not({"genome":prev_genome(wildcards)}),
@@ -189,8 +185,8 @@ rule reconstruct_singleton:
     #params: merge=merged_or_not_param
     shell:
         '''
-        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1}
-        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2}
+        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1} --quiet
+        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2} --quiet
         '''
 
 
@@ -233,23 +229,25 @@ rule join:
         # if singleton reconstruct is empty (at least one of genomes does not have singletons)
         # copy file from before split and sort it, as singletons are sorted
         if empty:
-            shell(" ".join([SCRIPT, "-x", input.xmfa_orig, "-o 1 -t xmfa -p . -n add"+wildcards["genome"]+"_joined"]))
+            shell(" ".join([SCRIPT, "-x", input.xmfa_orig, "-o 1 -t xmfa -p . -n add"+wildcards["genome"]+"_joined", "--quiet"]))
         else:
-            shell(" ".join([SCRIPT, "-x", input.xmfa_pair, "-y", input.xmfa_singlealign, "-o 1 -t join -p . -n add"+wildcards["genome"]]))
+            shell(" ".join([SCRIPT, "-x", input.xmfa_pair, "-y", input.xmfa_singlealign, "-o 1 -t join -p . -n add"+wildcards["genome"], "--quiet"]))
 
 
 rule realign:
     input: merged_or_not
     output: temp("add{genome,\d+(_single)*}_realign.xmfa")
+    params: lambda wildcards: "" if not_resolved(wildcards) else "--quiet"
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign --blat {BLAT}"
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign --blat {BLAT} {params}"
 
         
 rule merge:
     input: resolved_or_not
     output: temp("add{genome,\d+(_single)*}_merge.xmfa")
+    params: lambda wildcards: "" if not_resolved(wildcards) else "--quiet"
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
+        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge {params}"
         
         
 rule align:
