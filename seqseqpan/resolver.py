@@ -1,8 +1,5 @@
 import bisect
-import re
-import pdb
 
-from seqseqpan.exception import ConsensusXMFAInputError, ConsensusCorruptError
 from seqseqpan.base import *
 
 

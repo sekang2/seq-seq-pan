@@ -2,13 +2,11 @@ import collections
 import itertools
 from operator import itemgetter
 import math
-import sys
 
 from Bio import pairwise2
 
-from seqseqpan.exception import ConsensusXMFAInputError
 from seqseqpan.base import *
-from seqseqpan.constants import BLOCK_DELIMITER
+
 
 class Separator:
     def separate_lcbs(self, alignment, length):
@@ -58,7 +56,6 @@ class Merger:
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
             if consensus_entry is None and new_entry is not None and len(new_entry.sequence) <= block_length:
 
-                #pdb.set_trace()
                 nr_gaps = len(new_entry.sequence)
 
                 # check if can be appended to previous entry and if that ends with a gap

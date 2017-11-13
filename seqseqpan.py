@@ -2,7 +2,6 @@
 
 import argparse
 import sys
-import pdb
 
 from seqseqpan.io import Parser, Writer, Processor
 from seqseqpan.modifier import Realigner, Merger, Separator, Remover, SingletonAligner
