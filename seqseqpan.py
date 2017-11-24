@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3.4
 
 import argparse
 
@@ -8,7 +8,6 @@ from seqseqpan.formatter import Splitter
 from seqseqpan.resolver import Resolver
 from seqseqpan.exception import *
 from seqseqpan.mapper import Mapper
-
 
 def parse_xmfa(xmfa_f):
     try:
@@ -224,17 +223,18 @@ if __name__ == '__main__':
     # top parser with always needed arguments
     args_parser = argparse.ArgumentParser()
 
+    required = args_parser.add_argument_group('required arguments')
+
     # these arguments are required for all parsers - but not shown in help for subparser
     # they are therefore moved to a "parent parser" and included in 'parent' for all subparsers
     top_parser = argparse.ArgumentParser(add_help=False)
     top_parser.add_argument("--quiet", dest="quiet", help="Suppress warnings.", action='store_true')
-    required = top_parser.add_argument_group('required arguments')
+    top_required = top_parser.add_argument_group('required arguments')
 
-    required.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
-    required.add_argument("-n", "--name", dest="output_name",
+    top_required.add_argument("-p", "--output_path", dest="output_p", help="path to output directory", required=True)
+    top_required.add_argument("-n", "--name", dest="output_name",
                         help="File prefix and sequence header for output FASTA / XFMA file", required=True)
 
-    args_parser._action_groups[1], args_parser._action_groups[2] = args_parser._action_groups[2], args_parser._action_groups[1]
 
     # parent parser for common arguments
     xmfa_file_parser = argparse.ArgumentParser(add_help=False)
