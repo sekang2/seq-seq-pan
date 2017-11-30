@@ -39,12 +39,6 @@ snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_ne
 
 ---
 
-#### Representation of pipeline
-
-Pipeline steps are represented as blocks, dashed ones are optional. The first iteration is different and is marked with the blue arrow.
-
-![](representation/seq-seq-pan-pipeline.png)
-
 
 ## Pan-genome data structure
 For full representation of pan-genome and to be able to work with the data structure, only the .XMFA and the genome_description files are needed.
@@ -52,10 +46,7 @@ For full representation of pan-genome and to be able to work with the data struc
 .FASTA files can be discarded as all sequences can be extracted from the pan-genome, the consensus sequence can be constructed from the .XMFA file at any time.
 
 
-
----
-## Program
-### Usage
+### Working with the data structure
 
 ```
 usage: seqseqpan.py [-h] subcommand ...
@@ -87,10 +78,8 @@ seqseqpan.py [subcommand] -h
 ```
 
 
----
-
-## Additional scripts
-### Genome Description File 
+#### Additional scripts
+##### Genome Description File
 Use the genome_description.py script to generate the genome description file for a set of .FASTA files.
 ```
 python3.4 genomedescription.py -i GENOME_LIST -o GENOME_DESC_F
