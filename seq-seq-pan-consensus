@@ -1,0 +1,18 @@
+#!/bin/bash
+display_help() {
+    echo "seq-seq-pan - Consensus Genome Construction from WGA"
+    echo ""
+    echo "Usage: $0 INPUT.xmfa"
+    echo
+    exit 0
+}
+
+if [ "$1" == "" -o "$1" == "-h" -o "$1" == "--help" ]; then
+  display_help
+  exit 0
+fi
+
+file=$1
+name=${file%.xmfa}
+
+java -jar "${BASH_SOURCE%/*}/java/XMFAConsensus/XMFAconsensus_majorityvote.jar" --xmfa ${file} --outfasta ${name}_consensus.fasta --outidx ${name}_consensus.fasta.idx --outblocksepfasta ${name}_consensus.fasta.blockseparated.fasta --outblocksepidx ${name}_consensus.fasta.blockseparated.idx

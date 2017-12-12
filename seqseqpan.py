@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.4
+#!/usr/bin/env python3
 
 import argparse
 
@@ -221,7 +221,7 @@ def xmfa_task(args):
 
 if __name__ == '__main__':
     # top parser with always needed arguments
-    args_parser = argparse.ArgumentParser()
+    args_parser = argparse.ArgumentParser(description="seq-seq-pan - Working with the Pan-genome")
 
     required = args_parser.add_argument_group('required arguments')
 
@@ -276,10 +276,10 @@ if __name__ == '__main__':
     blockcountsplit_parser.set_defaults(func=blockcountsplit_task)
 
     # consensus
-    subcommand_text = "Create consensus sequence from XMFA file."
-    consensus_parser = subparsers.add_parser("consensus", help=subcommand_text, description=subcommand_text,
-                                             parents=[top_parser, xmfa_file_parser, order_parser])
-    consensus_parser.set_defaults(func=consensus_task)
+    #subcommand_text = "Create consensus sequence from XMFA file."
+    #consensus_parser = subparsers.add_parser("consensus", help=subcommand_text, description=subcommand_text,
+    #                                         parents=[top_parser, xmfa_file_parser, order_parser])
+    #consensus_parser.set_defaults(func=consensus_task)
 
     # extract
     subcommand_text = "Extract sequence for whole genome or genomic interval."
@@ -359,7 +359,7 @@ if __name__ == '__main__':
     split_parser.set_defaults(func=split_task)
 
     # xmfa
-    subcommand_text = "Write XMFA file from XMFA file (for reordering or checking validity."
+    subcommand_text = "Write XMFA file from XMFA file (for reordering or checking validity)."
     xmfa_parser = subparsers.add_parser("xmfa", help=subcommand_text, description=subcommand_text,
                                         parents=[top_parser, xmfa_file_parser, order_parser])
     xmfa_parser.set_defaults(func=xmfa_task)

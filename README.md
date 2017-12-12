@@ -1,32 +1,57 @@
-# Pan-genome construction
+# seq-seq-pan
+Build extendable whole genome alignments with a linear represenation optimized for subsequent sequence analysis methods.
 
+## Setup
+#### With Conda
+To install Conda please refer to the [Conda Installation Guide](https://conda.io/docs/user-guide/install/index.html) and add the [bioconda channel](http://ddocent.com//bioconda/).
 
-## Prerequisites
-This program was implemented in Python and requires Python3.4 or higher.<br/>
+Install seq-seq-pan:
+```
+conda install seq-seq-pan
+```
 
-It depends on the following Biopython modules: SeqIO, Seq, SeqRecord and pairwise2.<br/>
-It depends on the following software: blat <br\>
+Alternatively, install seq-seq-pan in a separated environment (named ssp here):
+```
+conda create -n ssp seq-seq-pan
+source activate ssp # Activate the environment. To deactivate use "source deactivate"
+```
+bioconda recipes are also provided as Docker images via [BioContainers](http://biocontainers.pro/).
 
-<br/>  
-Software required for running pipeline for set of genomes
-* snakemake
-* progressiveMauve
+#### Without Conda
+To use seq-seq-pan, the following dependencies have to be satisfied:
+
+* Python3.5 or higher
+* Biopython (v1.69) modules: SeqIO, Seq, SeqRecord and pairwise2.
+* blat v35
+* snakemake (v4.3)
+* progressiveMauve (snapshot_2015-02-13)
 * Java8
 
-
-## Pipeline
-### Usage
-#### Build pan-genome from set of sequences
+To install seq-seq-pan, run:
 ```
-snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
+git clone https://gitlab.com/chrjan/seq-seq-pan.git
+cd seq-seq-pan
+chmod u+x seq-seq-pan*
 ```
-
-#### Add set of sequences to existing pan-genome
+For easy access, you might want to add the DaisySuite directory to your PATH variable, e.g.
 ```
-snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_new.txt outfilename=TB_example_extended merge=True pangenome=TB_example.xmfa
+export PATH=/path/to/seq-seq-pan/:$PATH
 ```
 
-#### Config
+## Usage
+
+#### seq-seq-pan-wga
+Build pan-genome from set of sequences
+```
+seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=ssp_example merge=True
+```
+
+Add set of sequences to existing pan-genome
+```
+seq-seq-pan-wga --config genomefile=genome_list_new.txt outfilename=ssp_example_extended merge=True pangenome=ssp_example.xmfa
+```
+
+++Configuration++
 
 | name        | description |
 |-------------|-------------|
@@ -39,20 +64,22 @@ snakemake --snakefile run_seqseqpan.Snakemake --config genomefile=genome_list_ne
 
 ---
 
-
-## Pan-genome data structure
+#### seq-seq-pan
 For full representation of pan-genome and to be able to work with the data structure, only the .XMFA and the genome_description files are needed.
-
 .FASTA files can be discarded as all sequences can be extracted from the pan-genome, the consensus sequence can be constructed from the .XMFA file at any time.
 
-
-### Working with the data structure
+Working with the data structure:
 
 ```
-usage: seqseqpan.py [-h] subcommand ...
+seq-seq-pan subcommand ...
+```
+Get details on subcommand parameters with:
+```
+seq-seq-pan [subcommand] -h
 ```
 
-#### Subcommands
+++Subcommands++
+
 Arguments **-p** and **-n** are required for every subcommand.
 
 |subcommand|description|output|arguments|optional arguments|
@@ -72,15 +99,16 @@ Arguments **-p** and **-n** are required for every subcommand.
 |split          |Split LCBs according to chromosome annotation.|.XMFA file|-x, -g|-o|
 |xmfa           |Write XMFA file from XMFA file.|.XMFA file|-x|-o|
 
-Get details on subcommand parameters with:
+---
+#### seq-seq-pan-consensus
+Build the linear representation of the Pan-genome ("consensus genome").
 ```
-seqseqpan.py [subcommand] -h
+seq-seq-pan-consensus INPUT.xmfa
 ```
 
-
-#### Additional scripts
-##### Genome Description File
-Use the genome_description.py script to generate the genome description file for a set of .FASTA files.
+---
+#### seq-seq-pan-genomedescription
+Generate the genome description file for a set of .FASTA files.
 ```
-python3.4 genomedescription.py -i GENOME_LIST -o GENOME_DESC_F
+seq-seq-pan-genomedescription -i GENOME_LIST -o GENOME_DESC_F
 ```
