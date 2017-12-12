@@ -51,7 +51,7 @@ Add set of sequences to existing pan-genome
 seq-seq-pan-wga --config genomefile=genome_list_new.txt outfilename=ssp_example_extended merge=True pangenome=ssp_example.xmfa
 ```
 
-++Configuration++
+**Configuration**
 
 | name        | description |
 |-------------|-------------|
@@ -78,9 +78,9 @@ Get details on subcommand parameters with:
 seq-seq-pan [subcommand] -h
 ```
 
-++Subcommands++
+**Subcommands**
 
-Arguments **-p** and **-n** are required for every subcommand.
+Arguments *-p* and *-n* are required for every subcommand.
 
 |subcommand|description|output|arguments|optional arguments|
 |----------|-----------|------|---------|------------------|
