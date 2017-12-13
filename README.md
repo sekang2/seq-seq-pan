@@ -43,13 +43,16 @@ export PATH=/path/to/seq-seq-pan/:$PATH
 #### seq-seq-pan-wga
 Build pan-genome from set of sequences
 ```
-seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=ssp_example merge=True
+seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=ssp_example
 ```
 
 Add set of sequences to existing pan-genome
 ```
-seq-seq-pan-wga --config genomefile=genome_list_new.txt outfilename=ssp_example_extended merge=True pangenome=ssp_example.xmfa
+seq-seq-pan-wga --config genomefile=genome_list_new.txt outfilename=ssp_example_extended pangenome=ssp_example.xmfa
 ```
+
+Paths - if not absolute - are relative to current directory or the directory set by the config variable "workdir".
+Final and temporary output files will also be written to this directory.
 
 **Configuration**
 
@@ -61,7 +64,7 @@ seq-seq-pan-wga --config genomefile=genome_list_new.txt outfilename=ssp_example_
 | pangenome   |Path to exisiting pan-genome (pangenome.XMFA). Accompanying genome description file has to be present in same folder (pangenome_genomedescription.TXT).|
 | pmauve      |Optional, path to progressiveMauve executable. If not set, "progressiveMauve" is assumed to be included in $PATH.|
 | blat        |Optional, path to blat executable. If not set, "blat" is assumed to be included in $PATH.|
-
+| workdir     |Optional, set working directory. All other directories - if not absolute - are relative to this one.|
 ---
 
 #### seq-seq-pan
