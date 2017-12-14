@@ -338,7 +338,7 @@ if __name__ == '__main__':
                                           parents=[top_parser, xmfa_file_parser, order_parser])
     remove_parser._action_groups[2].add_argument("-r", "--removegenome", dest="rm_genome", type=int,
                         help="Number of genome to remove (as shown in XMFA header)", required=True)
-    remove_parser.set_defaults(func=remove_parser)
+    remove_parser.set_defaults(func=remove_task)
 
     # resolve
     subcommand_text = "Resolve LCBs stretching over delimiter sequences."
