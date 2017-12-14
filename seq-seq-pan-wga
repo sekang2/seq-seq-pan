@@ -3,7 +3,7 @@
 display_help() {
     echo "seq-seq-pan - Pan-genome Construction (powered by Snakemake)"
     echo ""
-	echo "Usage: $0 --config genomefile=genome_list.txt outfilename=TB_example [pangenome=TB_example.xmfa] [Snakemake options]"
+	echo "Usage: seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=TB_example [pangenome=TB_example.xmfa] [Snakemake options]"
 	echo
     echo " Useful Snakemake parameters:"
 	echo "   -n, --dryrun           do not execute anything"

@@ -2,7 +2,7 @@
 display_help() {
     echo "seq-seq-pan - Consensus Genome Construction from WGA"
     echo ""
-    echo "Usage: $0 INPUT.xmfa"
+    echo "Usage: seq-seq-pan-consensus INPUT.xmfa"
     echo
     exit 0
 }
