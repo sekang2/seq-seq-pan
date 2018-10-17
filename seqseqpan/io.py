@@ -298,8 +298,8 @@ class Writer:
 
                 count += 1
                 output.write(self._maf_sequence_header.format(count))
-
                 for entry in sorted(lcb.entries, key=lambda e: e.genome_nr):
+
                     genome = alignment.genomes[entry.genome_nr]
                     chrom_starts = splitter.get_chromosomes_for_entry(entry)
 
@@ -309,10 +309,7 @@ class Writer:
                     chrom_start = chrom_starts[0]
                     chrom = genome.chromosomes[chrom_start]
 
-                    if entry.strand == "+":
-                        start = entry.start - chrom_start
-                    else:
-                        start = chrom["length"] - entry.end # MAF format: This is a zero-based number. If the strand field is '-' then this is the start relative to the reverse-complemented source sequence
+                    start = entry.start - chrom_start   # MAF format: This is a zero-based number. If the strand field is '-' then this is the start relative to the reverse-complemented source sequence
 
                     output.write(self._maf_entry_header.format(chrom["desc"].replace(" ", "_"), start,
                                                                    ((entry.end - entry.start) + 1), entry.strand,
