@@ -21,7 +21,7 @@ bioconda recipes are also provided as Docker images via [BioContainers](http://b
 To use seq-seq-pan, the following dependencies have to be satisfied:
 
 * Python3.5 or higher
-* Biopython (v1.69) modules: SeqIO, Seq, SeqRecord and pairwise2.
+* Biopython (v1.69) modules: SeqIO, Seq, SeqRecord and pairwise2
 * blat v35
 * snakemake (v4.3)
 * progressiveMauve (snapshot_2015-02-13)
@@ -33,7 +33,7 @@ git clone https://gitlab.com/chrjan/seq-seq-pan.git
 cd seq-seq-pan
 chmod u+x seq-seq-pan*
 ```
-For easy access, you might want to add the DaisySuite directory to your PATH variable, e.g.
+For easy access, you might want to add the seq-seq-pan directory to your PATH variable, e.g.
 ```
 export PATH=/path/to/seq-seq-pan/:$PATH
 ```

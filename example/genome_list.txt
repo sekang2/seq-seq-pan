@@ -1,6 +1,6 @@
-./seq/Mycobacterium_tuberculosis_W-148_uid39283.fasta
-./seq/Mycobacterium_tuberculosis_H37Rv_uid57777.fasta
-./seq/Mycobacterium_tuberculosis_Beijing_NITR203_uid197218.fasta
-./seq/Mycobacterium_tuberculosis_CDC1551_uid57775.fasta
-./seq/Mycobacterium_tuberculosis_CTRI_2_uid161997.fasta
-./seq/Mycobacterium_tuberculosis_Haarlem_uid54453.fasta
+seq/Mycobacterium_tuberculosis_W-148_uid39283.fasta
+seq/Mycobacterium_tuberculosis_H37Rv_uid57777.fasta
+seq/Mycobacterium_tuberculosis_Beijing_NITR203_uid197218.fasta
+seq/Mycobacterium_tuberculosis_CDC1551_uid57775.fasta
+seq/Mycobacterium_tuberculosis_CTRI_2_uid161997.fasta
+seq/Mycobacterium_tuberculosis_Haarlem_uid54453.fasta
