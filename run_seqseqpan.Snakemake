@@ -2,6 +2,9 @@ import sys
 import re
 import shutil
 
+if "workdir" in config:
+    workdir: config["workdir"]
+
 sys.setrecursionlimit(1000000)
 
 SCRIPT="python3 " + srcdir("seqseqpan.py")
@@ -25,6 +28,7 @@ if PREV_PAN != "":
      PREV_PAN = re.sub("\.xmfa$", "", PREV_PAN)
 
 PMAUVE = config.get("pmauve", "progressiveMauve")
+BLAT = config.get("blat", "blat")
 
 ruleorder: use_prev_pan > resolve
 
@@ -44,19 +48,16 @@ def is_first_align(genome):
 def reconstruct_or_not(wildcards):
     return ("add"+wildcards["genome"]+"_joined.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "") else "add"+wildcards["genome"]+"_reconstruct.xmfa")
 
+def not_resolved(wildcards):
+    return (is_first_align(wildcards["genome"]) and PREV_PAN == "" )
+
 # resolve not possible/necessary for alignment of first two genomes
 def resolved_or_not(wildcards):
-    return ("add"+wildcards["genome"]+"_align.xmfa" if (is_first_align(wildcards["genome"]) and PREV_PAN == "" ) else "add"+wildcards["genome"]+"_resolve.xmfa")
+    return ("add"+wildcards["genome"]+"_align.xmfa" if not_resolved(wildcards) else "add"+wildcards["genome"]+"_resolve.xmfa")
 
 # merge after alignment
 def merged_or_not(wildcards):
     return("add"+wildcards["genome"]+"_merge.xmfa" if MERGE else resolved_or_not(wildcards))
-
-# merge after alignment of single blocks
-#def merged_or_not_singletons(wildcards):
-#    my_wc = wildcards
-#    my_wc["genome"] = wildcards["genome"] + "_single"
-#    return merged_or_not(my_wc)
 
 def merged_or_not_param(wildcards):
     return ("-m" if MERGE else "")
@@ -82,6 +83,7 @@ def prev_genome(wildcards):
 
 def prev_joined_filename(wildcards):
     return "".join(["add", prev_genome(wildcards), "_joined.xmfa"])
+
 
 #  "xmfa_prev" always needed when using consensus! --> xmfa file used to build consensus
 
@@ -120,12 +122,12 @@ rule fn_translate:
         cp {input.c} {output.c}
         cp {input.xmfa} {output.xmfa}
         
-        sed -i "1 s/$name/$out/g" {output.c}
-        sed -i "1 s/$name/$out/g" {output.cb}
-        sed -i "1 s/$name/$out/" {output.ci}
-        sed -i "2 s/$name/$out/" {output.ci}
-        sed -i "1 s/$name/$out/" {output.cbi}
-        sed -i "2 s/$name/$out/" {output.cbi}
+        sed -i "1 s|$name|$out|g" {output.c}
+        sed -i "1 s|$name|$out|g" {output.cb}
+        sed -i "1 s|$name|$out|" {output.ci}
+        sed -i "2 s|$name|$out|" {output.ci}
+        sed -i "1 s|$name|$out|" {output.cbi}
+        sed -i "2 s|$name|$out|" {output.cbi}
         '''
 
         
@@ -137,7 +139,7 @@ rule consensus:
             temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta.idx"),
             temp("add{genome,-*\d+(_[12]_single)*}_consensus.fasta")
     shell:
-        #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
+        #"{SCRIPT} consensus -x {input} -p . -n add{wildcards.genome}"
         "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
 
 
@@ -149,7 +151,7 @@ rule consensus_singleton:
             temp("add{genome,\d+_[12]}_single_consensus.fasta.idx"),
             temp("add{genome,\d+_[12]}_single_consensus.fasta")
     shell:
-        #"{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t consensus"
+        #"{SCRIPT} consensus -x {input} -p . -n add{wildcards.genome}"
         "{JAR} --xmfa {input} --outfasta {output[3]} --outidx {output[2]} --outblocksepfasta {output[0]} --outblocksepidx {output[1]}"
 
 
@@ -157,10 +159,8 @@ rule resolve:
     input:  xmfa= "add{genome}_align.xmfa",
             consensus=consensus_file
     output: temp("add{genome,\d+}_resolve.xmfa")
-#    params: merge=merged_or_not_param
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t resolve -c {input.consensus[1]}"
-        #" {params.merge}"
+        "{SCRIPT} resolve -x {input.xmfa} -p . -n add{wildcards.genome} -c {input.consensus[1]}"
         
 rule reconstruct:
     input: xmfa_prev= lambda wildcards: reconstruct_or_not({"genome":prev_genome(wildcards)}),
@@ -168,7 +168,7 @@ rule reconstruct:
            consensus=consensus_file
     output: temp("add{genome,\d+}_reconstruct.xmfa")
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome} -t reconstruct -c {input.consensus[1]}"
+        "{SCRIPT} reconstruct -x {input.xmfa} -p . -n add{wildcards.genome} -c {input.consensus[1]}"
 
 rule reconstruct_singleton:
     input: xmfa="add{genome, \d+}_single_realign.xmfa",
@@ -188,8 +188,8 @@ rule reconstruct_singleton:
     #params: merge=merged_or_not_param
     shell:
         '''
-        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t reconstruct -c {input.consensus_1}
-        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t reconstruct -c {input.consensus_2}
+        {SCRIPT} reconstruct -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -c {input.consensus_1} --quiet
+        {SCRIPT} reconstruct -x {output[0]} -p . -n add{wildcards.genome}_single -c {input.consensus_2} --quiet
         '''
 
 
@@ -209,8 +209,8 @@ rule resolve_singleton:
             temp("add{genome, \d+}_single_resolve.xmfa")
     shell:
         '''
-        {SCRIPT} -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -t resolve -c {input.consensus_1}
-        {SCRIPT} -x {output[0]} -p . -n add{wildcards.genome}_single -t resolve -c {input.consensus_2}
+        {SCRIPT} resolve -x {input.xmfa} -p . -n add{wildcards.genome}_single_temp -c {input.consensus_1}
+        {SCRIPT} resolve -x {output[0]} -p . -n add{wildcards.genome}_single -c {input.consensus_2}
         '''
 
 
@@ -232,23 +232,25 @@ rule join:
         # if singleton reconstruct is empty (at least one of genomes does not have singletons)
         # copy file from before split and sort it, as singletons are sorted
         if empty:
-            shell(" ".join([SCRIPT, "-x", input.xmfa_orig, "-o 1 -t xmfa -p . -n add"+wildcards["genome"]+"_joined"]))
+            shell(" ".join([SCRIPT, "xmfa -x", input.xmfa_orig, "-o 1 -p . -n add"+wildcards["genome"]+"_joined", "--quiet"]))
         else:
-            shell(" ".join([SCRIPT, "-x", input.xmfa_pair, "-y", input.xmfa_singlealign, "-o 1 -t join -p . -n add"+wildcards["genome"]]))
+            shell(" ".join([SCRIPT, "join -x", input.xmfa_pair, "-y", input.xmfa_singlealign, "-o 1 -p . -n add"+wildcards["genome"], "--quiet"]))
 
 
 rule realign:
     input: merged_or_not
     output: temp("add{genome,\d+(_single)*}_realign.xmfa")
+    params: lambda wildcards: "" if not_resolved(wildcards) else "--quiet"
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t realign"
+        "{SCRIPT} realign -x {input} -p . -n add{wildcards.genome} --blat {BLAT} {params}"
 
         
 rule merge:
     input: resolved_or_not
     output: temp("add{genome,\d+(_single)*}_merge.xmfa")
+    params: lambda wildcards: "" if not_resolved(wildcards) else "--quiet"
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t merge"        
+        "{SCRIPT} merge -x {input} -p . -n add{wildcards.genome} {params}"
         
         
 rule align:
@@ -285,7 +287,7 @@ rule genome_count_split:
             temp("add{genome,\d+}_1_single.xmfa"),
             temp("add{genome,\d+}_2_single.xmfa")
     shell:
-        "{SCRIPT} -x {input} -p . -n add{wildcards.genome} -t blockcountsplit"
+        "{SCRIPT} blockcountsplit -x {input} -p . -n add{wildcards.genome}"
 
 
 rule align_singleton:
@@ -325,21 +327,25 @@ rule align_singleton:
 
         # check if fasta files only contain header
         count = 0
+        length = 0
         with open(input.consensus_1) as f:
             first_line = f.readline()
             for line in f:
                 count = 1
+                length = len(line)
                 break
-        one = (count > 0)
+        one = (count > 0 and length > 23)
 
         count = 0
+        length = 0
         with open(input.consensus_2) as f:
             first_line = f.readline()
             for line in f:
                 count = 1
+                length = len(line)
                 break
 
-        two = (count > 0)
+        two = (count > 0 and length > 23)
 
         # align if both fasta files valid
         if one and two:
@@ -355,7 +361,7 @@ rule maf:
            genomedesc=config["outfilename"]+"_genomedescription.txt"
     output: "{genome}.maf"
     shell:
-        "{SCRIPT} -x {input.xmfa} -p . -n {wildcards.genome} -t maf -g {input.genomedesc}"
+        "{SCRIPT} maf -x {input.xmfa} -p . -n {wildcards.genome} -g {input.genomedesc}"
 
 
 rule split:
@@ -363,7 +369,7 @@ rule split:
            genomedesc=config["outfilename"]+"_genomedescription.txt"
     output: "add{genome}_split.xmfa"
     shell:
-        "{SCRIPT} -x {input.genome} -p . -n add{wildcards.genome} -t split -g {input.genomedesc}"
+        "{SCRIPT} split -x {input.genome} -p . -n add{wildcards.genome} -g {input.genomedesc}"
 
 
 rule genomedesc:

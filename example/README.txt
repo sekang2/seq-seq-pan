@@ -1,8 +1,7 @@
 How to start the example:
 -------------------------
 
-unzip seq.zip into seq/.
-Check if .fasta paths in "genome_list.txt" are correct.
+Create directory seq/ in current directory and unzip seq.zip into seq/.
 
 
 SIMPLE EXAMPLE:
@@ -10,7 +9,7 @@ SIMPLE EXAMPLE:
 
 Build pan-genome from 6 sequences:
 ---------------------------------
-snakemake --snakefile ../run_seqseqpan.Snakemake --config genomefile=genome_list.txt outfilename=TB_example merge=True
+../seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=ssp_example
 
 
 
@@ -19,9 +18,9 @@ ADVANCED EXAMPLE:
 
 Build pan-genome from 4 sequences and add 2 sequences afterwards:
 -----------------------------------------------------------------
-snakemake --snakefile ../run_seqseqpan.Snakemake --config genomefile=genome_list_4.txt outfilename=TB_example_4 merge=True
+../seq-seq-pan-wga --config genomefile=genome_list_4.txt outfilename=ssp_example_4 merge=True
 
-snakemake --snakefile ../run_seqseqpan.Snakemake --config genomefile=genome_list_2.txt outfilename=TB_example_6 merge=True pangenome=TB_example_4.xmfa
+../seq-seq-pan-wga --config genomefile=genome_list_2.txt outfilename=ssp_example_6 merge=True pangenome=ssp_example_4.xmfa
 
 
 

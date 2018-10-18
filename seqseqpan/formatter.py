@@ -1,11 +1,13 @@
 import bisect
 
 from seqseqpan.base import *
+from seqseqpan.resolver import Resolver
 
 
 class Splitter:
     def __init__(self, alignment, chromosome_desc):
         self.alignment = alignment
+        self.resolver = Resolver()
         for nr, genome in alignment.genomes.items():
             genome.add_chromosomes(chromosome_desc[nr])
 
@@ -27,39 +29,41 @@ class Splitter:
         for entry in lcb.entries:
             chrom_starts = self.get_chromosomes_for_entry(entry)
             starts = chrom_starts
-            starts[0] = entry.start
+
+            if entry.strand == "-":
+                starts = [(entry.end - chrom_start) + 2 for chrom_start in starts]
+            else:
+                starts = [(chrom_start - entry.start) + 1 for chrom_start in starts]
+
+            starts[0] = 1
+
             if len(starts) > 1:
-                split_coords.extend(
-                    [entry.get_position_within_entry_with_gaps((chrom_start - entry.start) + 1) for chrom_start in chrom_starts])
+
+                starts_with_gaps = [entry.get_position_within_entry_with_gaps(coords_local) for coords_local in starts]
+                starts_with_gaps[0] = 1
+                split_coords.extend( starts_with_gaps )
 
         split_coords = sorted(list(set(split_coords)))
 
         if len(split_coords) > 1:
-            print("Splitting LCB by chromosomes: " + str(lcb.number) + " ")
-            print(split_coords)
-            print("\n")
+
             split_coords = [c - 1 for c in split_coords]
             split_coords = split_coords + [lcb.length]
 
             # create new lcbs with split coords and return them
             lcbs = [LCB() for _ in range(len(split_coords) - 1)]
             entries = lcb.entries
-            cur_starts = [entry.start for entry in entries]
 
             for c_idx in range(1, len(split_coords)):
                 for e_idx in range(len(entries)):
 
                     entry = lcb.entries[e_idx]
-                    start = cur_starts[e_idx]
 
-                    seq = entry.sequence[split_coords[c_idx - 1]:split_coords[c_idx]]
+                    start = split_coords[c_idx - 1]
+                    end = split_coords[c_idx]
 
-                    non_gaps = len(seq) - seq.count("-")
-
-                    if non_gaps > 0:
-                        cur_starts[e_idx] = start + non_gaps
-                        end = cur_starts[e_idx] - 1
-                        new_entry = SequenceEntry(entry.genome_nr, start, end, entry.strand, seq)
+                    new_entry = self.resolver.get_split_entry(entry, start, end)
+                    if new_entry is not None:
                         lcbs[c_idx - 1].add_entries(new_entry)
             return lcbs
         else:

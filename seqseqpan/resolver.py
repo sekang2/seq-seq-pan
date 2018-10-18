@@ -1,8 +1,5 @@
 import bisect
-import re
-import pdb
 
-from seqseqpan.exception import ConsensusXMFAInputError, ConsensusCorruptError
 from seqseqpan.base import *
 
 
@@ -139,11 +136,11 @@ class Resolver:
             if new_entry is None:
                 entries = []
             else:
-                entries = [self._get_split_entry(new_entry, indices[i], indices[i + 1])]
+                entries = [self.get_split_entry(new_entry, indices[i], indices[i + 1])]
 
             # check if element is non-delimiter element
             if (i % 2 == 0 and not even_is_delimiter) or (i % 2 != 0 and even_is_delimiter):
-                entries.append(self._get_split_entry(consensus_entry, indices[i], indices[i + 1]))
+                entries.append(self.get_split_entry(consensus_entry, indices[i], indices[i + 1]))
 
             entries = list(filter(None, entries))  # add all entries that are not None)
 
@@ -161,7 +158,7 @@ class Resolver:
 
         return split_lcbs
 
-    def _get_split_entry(self, entry, split_start, split_end):
+    def get_split_entry(self, entry, split_start, split_end):
         seq = entry.sequence[split_start:split_end]
         if seq == "" or re.search("[^-]", seq) is None:
             return None

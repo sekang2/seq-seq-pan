@@ -1,8 +1,5 @@
-import os
-import re
 import collections
 import subprocess
-import pdb
 
 import contextlib
 import warnings
@@ -301,8 +298,8 @@ class Writer:
 
                 count += 1
                 output.write(self._maf_sequence_header.format(count))
-
                 for entry in sorted(lcb.entries, key=lambda e: e.genome_nr):
+
                     genome = alignment.genomes[entry.genome_nr]
                     chrom_starts = splitter.get_chromosomes_for_entry(entry)
 
@@ -312,11 +309,11 @@ class Writer:
                     chrom_start = chrom_starts[0]
                     chrom = genome.chromosomes[chrom_start]
 
-                    start = entry.start - chrom_start
+                    start = entry.start - chrom_start   # MAF format: This is a zero-based number. If the strand field is '-' then this is the start relative to the reverse-complemented source sequence
 
                     output.write(self._maf_entry_header.format(chrom["desc"].replace(" ", "_"), start,
-                                                               ((entry.end - entry.start) + 1), entry.strand,
-                                                               chrom["length"], entry.sequence))
+                                                                   ((entry.end - entry.start) + 1), entry.strand,
+                                                                   chrom["length"], entry.sequence))
 
     def write_mapping_coordinates(self, source, destinations, coords_dict, path, name):
         with open(os.path.abspath(path + "/" + name + ".txt"), "w") as output:
@@ -414,7 +411,7 @@ class Processor:
 
         output_file = os.path.abspath(self.path + "/" + "realigner_blat_realign.pslx")
 
-        returncode = subprocess.call(args=[self.blat, filename_one, filename_two, output_file, "-out=pslx"])
+        returncode = subprocess.call(args=[self.blat, filename_one, filename_two, output_file, "-out=pslx"], stdout=subprocess.DEVNULL)
 
         try:
             if returncode == 0:

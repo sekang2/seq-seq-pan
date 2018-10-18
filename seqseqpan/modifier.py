@@ -2,14 +2,11 @@ import collections
 import itertools
 from operator import itemgetter
 import math
-import sys
-import pdb
 
 from Bio import pairwise2
 
-from seqseqpan.exception import ConsensusXMFAInputError
 from seqseqpan.base import *
-from seqseqpan.constants import BLOCK_DELIMITER
+
 
 class Separator:
     def separate_lcbs(self, alignment, length):
@@ -59,7 +56,6 @@ class Merger:
             # check if new entry is small and only created by splitting or aligning of new genome (consensus is None)
             if consensus_entry is None and new_entry is not None and len(new_entry.sequence) <= block_length:
 
-                #pdb.set_trace()
                 nr_gaps = len(new_entry.sequence)
 
                 # check if can be appended to previous entry and if that ends with a gap
@@ -153,6 +149,7 @@ class Merger:
 class Realigner:
     # local realignment around overlapping or consecutive gaps in two sequences
     # if border_aln_length is not None align only sequences at block border up to given length
+
     def realign(self, alignment, processor, border_aln_length=0):
         if len(alignment.genomes) > 2:
             raise ConsensusXMFAInputError()
@@ -266,9 +263,9 @@ class Realigner:
                                   (n_stretch_idx_two if n_stretch_idx_two > -1 else seq_end)
                                   )
 
-                    if border_aln_length > 0:
-                        print(seq_one[seq_start:seq_end])
-                        print(seq_two[seq_start:seq_end])
+                    #if border_aln_length > 0:
+                    #    print(seq_one[seq_start:seq_end])
+                    #    print(seq_two[seq_start:seq_end])
 
                     seq_one_nogap = seq_one[seq_start:seq_end].replace("-", "")
                     seq_two_nogap = seq_two[seq_start:seq_end].replace("-", "")
@@ -288,6 +285,8 @@ class Realigner:
 
                                 aln_seq_one = alignments[0][0]
                                 aln_seq_two = alignments[0][1]
+
+
                             else:
                                 # no alignment, do nothing for current interval
                                 break
@@ -296,6 +295,7 @@ class Realigner:
                             # do external blat alignment
                             aln_seq_one, aln_seq_two = self._external_blat(seq_one_nogap, seq_two_nogap, processor)
 
+
                             if aln_seq_one is not None:
                                 max_length = len(aln_seq_one)
                             else:
@@ -303,9 +303,9 @@ class Realigner:
                                 break
 
                         if max_length > 0 and max_length < ( seq_end - seq_start ):  # only use new alignment if better than old one
-                            if border_aln_length > 0:
-                                print(aln_seq_one)
-                                print(aln_seq_two)
+                            #if border_aln_length > 0:
+                            #    print(aln_seq_one)
+                            #    print(aln_seq_two)
 
                             seq_one = aln_seq_one.join([seq_one[:seq_start], seq_one[seq_end:]])
                             seq_two = aln_seq_two.join([seq_two[:seq_start], seq_two[seq_end:]])
@@ -315,6 +315,24 @@ class Realigner:
         return seq_one, seq_two
 
     def _external_blat(self, seq_one, seq_two, processor):
+
+        def _check_tuple_overlap(tuple_list):
+            num_tuple = len(tuple_list)
+
+            last_ok_end = -1
+
+            exclude_idx = []
+
+            #overlap_detected = False
+            for idx in range(num_tuple):
+                if tuple_list[idx][0] < last_ok_end:  #current start smaller than last end -> exclude
+                    exclude_idx.append(idx)
+                else:
+                    last_ok_end = tuple_list[idx][1]  # current tuple is ok -> store end
+
+            return exclude_idx
+
+
         align_result = processor.external_blat(seq_one, seq_two)
         if align_result is not None:
             # seq_one equals hit   seq_two equals query
@@ -336,19 +354,27 @@ class Realigner:
 
             if match.is_fragmented:
 
-                hspfrag_num = len(match.hit_range_all)
+                # in really rare cases fragments are overlapping!
+                exclude_keys = _check_tuple_overlap(match.hit_range_all)
+                exclude_keys = exclude_keys + _check_tuple_overlap(match.query_range_all)
 
-                for hspfrag_idx in range(hspfrag_num):
+                hspfrag_keys = list(set(range(len(match.hit_range_all))) - set(exclude_keys))
 
-                    hspfrag = match[hspfrag_idx]
+                hspfrag_key_num = len(hspfrag_keys)
+
+                for hspfrag_idx in range(hspfrag_key_num):
+
+                    hspfrag_key = hspfrag_keys[hspfrag_idx]
+                    hspfrag = match[hspfrag_key]
 
                     seq_one_list.append(str(hspfrag.hit.seq))
                     seq_two_list.append(str(hspfrag.query.seq))
 
                     # add sequences between aligned intervals to sequences
-                    if hspfrag_idx < (hspfrag_num - 1):
-                        next_hspfrag = match[hspfrag_idx + 1]
+                    if hspfrag_idx < (hspfrag_key_num - 1):
+                        next_hspfrag = match[hspfrag_keys[hspfrag_idx + 1]]
                         inter_hit_len = next_hspfrag.hit_start - hspfrag.hit_end
+
                         if inter_hit_len > 0:
                             seq_one_list.append(seq_one[hspfrag.hit_end:next_hspfrag.hit_start])
                             seq_two_list.append("-" * inter_hit_len)
