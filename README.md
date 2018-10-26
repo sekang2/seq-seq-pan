@@ -1,6 +1,13 @@
 # seq-seq-pan
 Build extendable whole genome alignments with a linear represenation optimized for subsequent sequence analysis methods.
 
+
+
+ 
+Jandrasits, C., Dabrowski, P. W., Fuchs, S., & Renard, B. Y. (2018).  
+seq-seq-pan: Building a computational pan-genome data structure on whole genome alignment. BMC genomics, 19(1), 47.  
+https://doi.org/10.1186/s12864-017-4401-3
+
 ## Setup
 #### With Conda
 To install Conda please refer to the [Conda Installation Guide](https://conda.io/docs/user-guide/install/index.html) and add the [bioconda channel](http://ddocent.com//bioconda/).
