@@ -69,6 +69,57 @@ class Splitter:
         else:
             return [lcb]
 
+
+    def split_sequence(self, region):
+        region_fields = region.split(":")
+        genome_nr = int(region_fields[0])
+        entries = []
+        for lcb in self.alignment.lcbs:
+            entry = lcb.get_entry(genome_nr)
+            if entry is not None:
+                if entry.strand == "-":
+                    entry.reverse_complement()
+                entries.append(entry)
+        sorted_entries = sorted(entries, key=lambda entry: entry.start)
+
+        sequence = "".join([entry.sequence for entry in sorted_entries])
+        sequence = sequence.replace("-", "")
+
+        chrom_starts = sorted(self.alignment.genomes[genome_nr].chromosomes.keys())
+
+        chromosomes = self.alignment.genomes[genome_nr].chromosomes
+
+        if len(region_fields) > 1:
+            start, end = region_fields[1].split("-")
+            start = int(start)
+            end = int(end)
+            sequence = sequence[(start-1):end]
+            helpEntry = SequenceEntry(start=start, end=end, sequence="", genome_nr=genome_nr, strand="+")
+            chrom_starts = self.get_chromosomes_for_entry(helpEntry)
+
+            chromosomes = {(chrom_start - start + 1): chromosomes[chrom_start] for chrom_start in chrom_starts}
+            chrom_starts = [chrom_start - start + 1 for chrom_start in chrom_starts]
+
+            desc_start = str(start - (chrom_starts[0]+start) + 2)
+            desc_end = str(end - (chrom_starts[-1]+start)+2)
+
+            if len(chrom_starts) > 1:
+                chromosomes[chrom_starts[0]]["desc"] += ":" + desc_start + "-" + str(chromosomes[chrom_starts[0]]["length"])
+                chromosomes[chrom_starts[-1]]["desc"] += ":1-" + desc_end
+            else:
+                chromosomes[chrom_starts[0]]["desc"] += ":" + desc_start + "-" + desc_end
+
+
+            chrom_starts[0] = 1
+
+
+        chrom_starts = [chrom_start - 1 for chrom_start in chrom_starts]
+
+        chunks = [sequence[i:j] for i, j in zip(chrom_starts, chrom_starts[1:] + [None])]
+
+        return chromosomes, chunks
+
+
     def get_chromosomes_for_entry(self, entry):
         genome = self.alignment.genomes[entry.genome_nr]
         chrom_starts = sorted(genome.chromosomes.keys())
@@ -77,3 +128,4 @@ class Splitter:
         idx_2 = bisect.bisect_right(chrom_starts, entry.end)
 
         return chrom_starts[idx_1:idx_2]
+

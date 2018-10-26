@@ -347,12 +347,18 @@ class Writer:
         with open(filename, "w") as handle:
             SeqIO.write(record, handle, "fasta")
 
-    def write_fasta(self, seq_name, sequence, path, name):
+    def write_fasta(self, chromosomes, sequences, path, name):
         filename = os.path.abspath(path + "/" + name + ".fasta")
-        record = SeqRecord(Seq(sequence), id=seq_name, description='')
 
         with open(filename, "w") as handle:
-            SeqIO.write(record, handle, "fasta")
+            for chr, seq in zip(sorted(chromosomes.keys()), sequences):
+                chromosome = chromosomes[chr]
+                seq_name = chromosome["desc"]
+                region = chromosome.get("region", None)
+                seq_name = ":".join(seq_name, region) if region is not None else seq_name
+                record = SeqRecord(Seq(seq), id=seq_name, description='')
+
+                SeqIO.write(record, handle, "fasta")
 
     def _write_consensus_index(self, alignment, fastafile, order=0):
         with open(fastafile + ".idx", "w") as output:

@@ -62,29 +62,15 @@ def consensus_task(args):
 
 def extract_task(args):
     align = parse_xmfa(args.xmfa_f)
+
     region = args.region
 
-    region_fields = region.split(":")
+    chromosome_desc = parser.parse_genome_description(args.genome_desc_f)
+    splitter = Splitter(align, chromosome_desc)
 
-    entries = []
-    for lcb in align.lcbs:
-        entry = lcb.get_entry(int(region_fields[0]))
-        if entry is not None:
-            if entry.strand == "-":
-                entry.reverse_complement()
-            entries.append(entry)
+    chromosomes, chunks = splitter.split_sequence(region)
 
-    sorted_entries = sorted(entries, key=lambda entry: entry.start)
-
-    sequence = "".join([entry.sequence for entry in sorted_entries])
-    sequence = sequence.replace("-", "")
-
-    if len(region_fields) > 1:
-        start, end = region_fields[1].split("-")
-        start = int(start) - 1
-        sequence = sequence[start:int(end)]
-
-    writer.write_fasta(region, sequence, args.output_p, args.output_name)
+    writer.write_fasta(chromosomes, chunks, args.output_p, args.output_name)
 
 
 def join_task(args):
@@ -284,7 +270,7 @@ if __name__ == '__main__':
     # extract
     subcommand_text = "Extract sequence for whole genome or genomic interval."
     extract_parser = subparsers.add_parser("extract", help=subcommand_text, description=subcommand_text,
-                                           parents=[top_parser, xmfa_file_parser])
+                                           parents=[top_parser, xmfa_file_parser, genomedesc_parser])
     extract_parser._action_groups[2].add_argument("-e", "--extractregion", dest="region",
                         help="Region to extract in the form genome_nr:start-end (one based and inclusive) "
                              "or only genome_nr for full sequence.", required=True)
