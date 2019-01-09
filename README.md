@@ -46,8 +46,11 @@ export PATH=/path/to/seq-seq-pan/:$PATH
 ```
 
 ## Usage
+If you used conda for setup as described above, please make sure you activated the environment.  
+
 
 #### seq-seq-pan-wga
+
 Build pan-genome from set of sequences
 ```
 seq-seq-pan-wga --config genomefile=genome_list.txt outfilename=ssp_example
